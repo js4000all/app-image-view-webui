@@ -40,6 +40,50 @@ class ImageViewHandler(SimpleHTTPRequestHandler):
             if entry.is_file() and entry.suffix.lower() in IMAGE_EXTENSIONS
         ]
 
+    def _serve_image(self, send_body: bool) -> None:
+        path = urlparse(self.path).path
+        image_path = path.removeprefix("/api/image/")
+        parts = image_path.split("/")
+        if len(parts) < 2:
+            return self.send_error(HTTPStatus.NOT_FOUND)
+
+        subdir = "/".join(parts[:-1])
+        filename = parts[-1]
+
+        try:
+            directory = self._safe_path(subdir)
+            file_path = (directory / unquote(filename)).resolve()
+        except PermissionError:
+            return self.send_error(HTTPStatus.FORBIDDEN)
+
+        if not file_path.is_relative_to(directory):
+            return self.send_error(HTTPStatus.FORBIDDEN)
+        if not file_path.exists() or not file_path.is_file():
+            return self.send_error(HTTPStatus.NOT_FOUND)
+        if file_path.suffix.lower() not in IMAGE_EXTENSIONS:
+            return self.send_error(HTTPStatus.UNSUPPORTED_MEDIA_TYPE)
+
+        mime_type = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
+
+        try:
+            content_length = file_path.stat().st_size
+        except OSError:
+            return self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
+
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", mime_type)
+        self.send_header("Content-Length", str(content_length))
+        self.end_headers()
+
+        if not send_body:
+            return
+
+        try:
+            with file_path.open("rb") as f:
+                self.copyfile(f, self.wfile)
+        except OSError:
+            return self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
+
     def do_GET(self):
         parsed = urlparse(self.path)
         path = parsed.path
@@ -61,45 +105,18 @@ class ImageViewHandler(SimpleHTTPRequestHandler):
             return self._send_json({"subdirectory": subdir, "images": self._image_entries(directory)})
 
         if path.startswith("/api/image/"):
-            image_path = path.removeprefix("/api/image/")
-            parts = image_path.split("/")
-            if len(parts) < 2:
-                return self.send_error(HTTPStatus.NOT_FOUND)
-
-            subdir = "/".join(parts[:-1])
-            filename = parts[-1]
-
-            try:
-                directory = self._safe_path(subdir)
-                file_path = (directory / unquote(filename)).resolve()
-            except PermissionError:
-                return self.send_error(HTTPStatus.FORBIDDEN)
-
-            if not file_path.is_relative_to(directory):
-                return self.send_error(HTTPStatus.FORBIDDEN)
-            if not file_path.exists() or not file_path.is_file():
-                return self.send_error(HTTPStatus.NOT_FOUND)
-            if file_path.suffix.lower() not in IMAGE_EXTENSIONS:
-                return self.send_error(HTTPStatus.UNSUPPORTED_MEDIA_TYPE)
-
-            try:
-                with file_path.open("rb") as f:
-                    image_data = f.read()
-            except OSError:
-                return self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
-
-            mime_type = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
-            self.send_response(HTTPStatus.OK)
-            self.send_header("Content-Type", mime_type)
-            self.send_header("Content-Length", str(len(image_data)))
-            self.end_headers()
-            self.wfile.write(image_data)
-            return
+            return self._serve_image(send_body=True)
 
         if path == "/":
             self.path = "/index.html"
 
         return super().do_GET()
+
+    def do_HEAD(self):
+        path = urlparse(self.path).path
+        if path.startswith("/api/image/"):
+            return self._serve_image(send_body=False)
+        return super().do_HEAD()
 
 
 def parse_args() -> argparse.Namespace:
