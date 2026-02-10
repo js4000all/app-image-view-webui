@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image View WebUI</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside id="sidebar" class="sidebar expanded">
+        <div class="sidebar-header">
+          <h1>Image Viewer</h1>
+          <button id="toggle-sidebar" aria-label="toggle sidebar">☰</button>
+        </div>
+
+        <label for="subdir-select">フォルダ</label>
+        <select id="subdir-select"></select>
+
+        <ul id="image-list"></ul>
+      </aside>
+
+      <main class="main">
+        <div class="image-frame">
+          <img id="main-image" alt="画像プレビュー" />
+          <p id="empty-message">左のリストから画像を選択してください</p>
+        </div>
+        <p id="status"></p>
+      </main>
+    </div>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>
