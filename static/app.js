@@ -70,7 +70,7 @@ async function loadImages(subdir) {
   currentIndex = -1;
   mainImage.removeAttribute('src');
   mainImage.style.display = 'none';
-  emptyMessage.style.display = 'block';
+  emptyMessage.style.display = 'grid';
 
   try {
     const data = await fetchJson(`/api/images/${encodePathSegment(subdir)}`);
