@@ -11,14 +11,19 @@ body {
   margin: 0;
   background: #101216;
   color: #eceff4;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .app {
   display: flex;
-  min-height: 100vh;
+  height: 100%;
+  overflow: hidden;
 }
 
 .sidebar {
+  display: flex;
+  flex-direction: column;
   width: 320px;
   background: #1b1f27;
   border-right: 1px solid #2f3845;
@@ -76,6 +81,9 @@ h1 {
   padding: 0;
   display: grid;
   gap: 6px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 #image-list button {
