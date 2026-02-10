@@ -89,7 +89,7 @@ class ImageViewHandler(SimpleHTTPRequestHandler):
         path = parsed.path
 
         if path == "/api/subdirectories":
-            subdirs = [entry.name for entry in sorted(self.base_dir.iterdir()) if entry.is_dir()]
+            subdirs = [entry.name for entry in sorted(self.base_dir.iterdir(), reverse=True) if entry.is_dir()]
             return self._send_json({"subdirectories": subdirs})
 
         if path.startswith("/api/images/"):
