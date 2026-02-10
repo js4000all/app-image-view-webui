@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image View WebUI - Home</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="home">
+      <h1>サブディレクトリ一覧</h1>
+      <p class="home-description">閲覧するフォルダを選択してください。</p>
+      <button id="reload-subdirs" type="button" class="reload-button">再読み込み</button>
+      <ul id="subdir-list" class="subdir-list"></ul>
+      <p id="home-status" class="home-status"></p>
+    </main>
+
+    <script src="/home.js" defer></script>
+  </body>
+</html>
