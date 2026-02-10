@@ -16,6 +16,7 @@ body {
 }
 
 .app {
+  --sidebar-width: 320px;
   display: flex;
   height: 100%;
   overflow: hidden;
@@ -24,12 +25,30 @@ body {
 .sidebar {
   display: flex;
   flex-direction: column;
-  width: 320px;
+  width: var(--sidebar-width);
+  min-width: 220px;
+  max-width: 60vw;
   background: #1b1f27;
   border-right: 1px solid #2f3845;
   padding: 16px;
   transition: width 0.2s ease, padding 0.2s ease;
   overflow: hidden;
+}
+
+.sidebar-resizer {
+  width: 8px;
+  cursor: col-resize;
+  background: #161a22;
+  border-right: 1px solid #2f3845;
+}
+
+.sidebar-resizer:hover,
+.sidebar-resizer.dragging {
+  background: #222834;
+}
+
+.sidebar.collapsed + .sidebar-resizer {
+  cursor: default;
 }
 
 .sidebar.collapsed {
