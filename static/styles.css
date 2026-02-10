@@ -200,21 +200,21 @@ h1 {
 .subdir-thumbs {
   display: flex;
   gap: 8px;
-  min-height: 56px;
+  min-height: 168px;
   align-items: center;
 }
 
 .subdir-thumb {
-  width: 56px;
-  height: 56px;
+  width: 168px;
+  height: 168px;
   border-radius: 6px;
   object-fit: cover;
   background: #1b1f27;
 }
 
 .subdir-thumb-slot {
-  width: 56px;
-  height: 56px;
+  width: 168px;
+  height: 168px;
   border-radius: 6px;
   overflow: hidden;
   flex: 0 0 auto;
