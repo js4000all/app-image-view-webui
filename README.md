@@ -1,4 +1,4 @@
-# tool-image-view-webui
+# app-image-view-webui
 ローカルファイルを閲覧するシンプルなwebアプリ。
 
 ## 起動方法
