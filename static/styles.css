@@ -96,34 +96,34 @@ h1 {
 
 .main {
   flex: 1;
-  display: grid;
-  place-items: center;
-  padding: 20px;
-}
-
-.image-frame {
-  width: 100%;
-  height: calc(100vh - 72px);
-  display: grid;
-  justify-items: center;
-  align-items: start;
-  border: 1px dashed #4c566a;
-  border-radius: 10px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  position: relative;
   background: #171b22;
 }
 
 #main-image {
-  max-width: 100%;
-  max-height: 100%;
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  min-height: 0;
   object-fit: contain;
   display: none;
 }
 
 #empty-message {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
   color: #9aa5b1;
 }
 
 #status {
-  margin-top: 12px;
+  margin: 8px 0 0;
   color: #9aa5b1;
 }
