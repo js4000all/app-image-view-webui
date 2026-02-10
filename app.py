@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import mimetypes
+from email.utils import formatdate, parsedate_to_datetime
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -69,13 +70,43 @@ class ImageViewHandler(SimpleHTTPRequestHandler):
         mime_type = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
 
         try:
-            content_length = file_path.stat().st_size
+            stat_result = file_path.stat()
+            content_length = stat_result.st_size
         except OSError:
             return self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
+
+        etag = f'W/"{stat_result.st_mtime_ns}-{stat_result.st_size}"'
+        last_modified = formatdate(stat_result.st_mtime, usegmt=True)
+        if_none_match = self.headers.get("If-None-Match")
+        if_modified_since = self.headers.get("If-Modified-Since")
+
+        if if_none_match and if_none_match.strip() == etag:
+            self.send_response(HTTPStatus.NOT_MODIFIED)
+            self.send_header("ETag", etag)
+            self.send_header("Last-Modified", last_modified)
+            self.send_header("Cache-Control", "public, max-age=31536000")
+            self.end_headers()
+            return
+
+        if if_modified_since:
+            try:
+                since_timestamp = parsedate_to_datetime(if_modified_since).timestamp()
+                if stat_result.st_mtime <= since_timestamp:
+                    self.send_response(HTTPStatus.NOT_MODIFIED)
+                    self.send_header("ETag", etag)
+                    self.send_header("Last-Modified", last_modified)
+                    self.send_header("Cache-Control", "public, max-age=31536000")
+                    self.end_headers()
+                    return
+            except (TypeError, ValueError, OverflowError):
+                pass
 
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", mime_type)
         self.send_header("Content-Length", str(content_length))
+        self.send_header("ETag", etag)
+        self.send_header("Last-Modified", last_modified)
+        self.send_header("Cache-Control", "public, max-age=31536000")
         self.end_headers()
 
         if not send_body:
