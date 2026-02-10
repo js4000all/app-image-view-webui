@@ -105,7 +105,8 @@ h1 {
   width: 100%;
   height: calc(100vh - 72px);
   display: grid;
-  place-items: center;
+  justify-items: center;
+  align-items: start;
   border: 1px dashed #4c566a;
   border-radius: 10px;
   background: #171b22;
