@@ -5,6 +5,7 @@ const imageList = document.getElementById('image-list');
 const mainImage = document.getElementById('main-image');
 const emptyMessage = document.getElementById('empty-message');
 const status = document.getElementById('status');
+const mainPane = document.querySelector('.main');
 
 let images = [];
 let currentSubdir = '';
@@ -128,5 +129,26 @@ document.addEventListener('keydown', (event) => {
     showImage((currentIndex - 1 + images.length) % images.length);
   }
 });
+
+if (mainPane) {
+  mainPane.addEventListener(
+    'wheel',
+    (event) => {
+      if (images.length === 0 || event.deltaY === 0) {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (event.deltaY > 0) {
+        showImage((currentIndex + 1) % images.length);
+        return;
+      }
+
+      showImage((currentIndex - 1 + images.length) % images.length);
+    },
+    { passive: false }
+  );
+}
 
 init();
