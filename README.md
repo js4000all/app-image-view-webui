@@ -28,8 +28,9 @@ python app.py /path/to/image-dir --host 0.0.0.0 --port 8000
 ```
 
 ## 画像表示テスト用ディレクトリ
-画像の表示テストを行う場合は、ルートディレクトリに `test/resources/image-root` を指定してください。
+画像の表示テストを行う場合は、ルートディレクトリに `test/resources/image_root` を指定してください。
+テスト画像の先頭1枚が初期表示される想定です。
 
 ```sh
-python app.py test/resources/image-root
+python app.py test/resources/image_root
 ```
