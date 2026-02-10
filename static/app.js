@@ -1,6 +1,7 @@
 const sidebar = document.getElementById('sidebar');
 const toggleSidebarBtn = document.getElementById('toggle-sidebar');
 const subdirSelect = document.getElementById('subdir-select');
+const reloadSubdirsBtn = document.getElementById('reload-subdirs');
 const imageList = document.getElementById('image-list');
 const mainImage = document.getElementById('main-image');
 const emptyMessage = document.getElementById('empty-message');
@@ -90,30 +91,63 @@ async function loadImages(subdir) {
   }
 }
 
-async function init() {
-  setStatus('読み込み中...');
+async function refreshSubdirectories(preferredSubdir = '') {
+  const hadCurrentSubdir = Boolean(preferredSubdir);
+  reloadSubdirsBtn.disabled = true;
 
   try {
     const data = await fetchJson('/api/subdirectories');
+    const subdirectories = data.subdirectories;
 
-    if (data.subdirectories.length === 0) {
-      setStatus('サブディレクトリがありません。');
+    if (subdirectories.length === 0) {
+      subdirSelect.innerHTML = '';
       subdirSelect.disabled = true;
+      images = [];
+      currentSubdir = '';
+      currentIndex = -1;
+      renderImageList();
+      mainImage.removeAttribute('src');
+      mainImage.style.display = 'none';
+      emptyMessage.style.display = 'grid';
+      setStatus('サブディレクトリがありません。');
       return;
     }
 
-    subdirSelect.innerHTML = data.subdirectories
+    const nextSubdir =
+      preferredSubdir && subdirectories.includes(preferredSubdir)
+        ? preferredSubdir
+        : subdirectories[0];
+
+    subdirSelect.innerHTML = subdirectories
       .map((name) => `<option value="${name}">${name}</option>`)
       .join('');
+    subdirSelect.value = nextSubdir;
+    subdirSelect.disabled = false;
 
-    subdirSelect.addEventListener('change', (event) => {
-      loadImages(event.target.value);
-    });
+    await loadImages(nextSubdir);
 
-    await loadImages(subdirSelect.value);
+    if (hadCurrentSubdir && preferredSubdir !== nextSubdir) {
+      setStatus(`フォルダ「${preferredSubdir}」が見つからなかったため「${nextSubdir}」を表示しています。`);
+    }
   } catch (error) {
-    setStatus(`初期化に失敗しました: ${error.message}`);
+    setStatus(`サブディレクトリ一覧の取得に失敗しました: ${error.message}`);
+  } finally {
+    reloadSubdirsBtn.disabled = false;
   }
+}
+
+async function init() {
+  setStatus('読み込み中...');
+
+  subdirSelect.addEventListener('change', (event) => {
+    loadImages(event.target.value);
+  });
+
+  reloadSubdirsBtn.addEventListener('click', () => {
+    refreshSubdirectories(subdirSelect.value || currentSubdir);
+  });
+
+  await refreshSubdirectories();
 }
 
 document.addEventListener('keydown', (event) => {
