@@ -14,18 +14,15 @@
           <button id="toggle-sidebar" aria-label="toggle sidebar">☰</button>
         </div>
 
-        <label for="subdir-select">フォルダ</label>
-        <div class="subdir-controls">
-          <select id="subdir-select"></select>
-          <button id="reload-subdirs" type="button" aria-label="サブディレクトリを再取得">↻</button>
-        </div>
+        <a class="home-link" href="/">← サブディレクトリ一覧へ</a>
+        <p id="selected-subdir" class="selected-subdir"></p>
 
         <ul id="image-list"></ul>
       </aside>
 
       <main class="main">
         <img id="main-image" alt="画像プレビュー" />
-        <p id="empty-message">左のリストから画像を選択してください</p>
+        <p id="empty-message">画像がありません</p>
         <p id="status"></p>
       </main>
     </div>

@@ -40,6 +40,9 @@ class ImageViewHandler(SimpleHTTPRequestHandler):
             if entry.is_file() and entry.suffix.lower() in IMAGE_EXTENSIONS
         ]
 
+    def _subdirectory_entries(self) -> list[str]:
+        return [entry.name for entry in sorted(self.base_dir.iterdir(), reverse=True) if entry.is_dir()]
+
     def _serve_image(self, send_body: bool) -> None:
         path = urlparse(self.path).path
         image_path = path.removeprefix("/api/image/")
@@ -89,8 +92,7 @@ class ImageViewHandler(SimpleHTTPRequestHandler):
         path = parsed.path
 
         if path == "/api/subdirectories":
-            subdirs = [entry.name for entry in sorted(self.base_dir.iterdir(), reverse=True) if entry.is_dir()]
-            return self._send_json({"subdirectories": subdirs})
+            return self._send_json({"subdirectories": self._subdirectory_entries()})
 
         if path.startswith("/api/images/"):
             subdir = path.removeprefix("/api/images/")
@@ -108,6 +110,8 @@ class ImageViewHandler(SimpleHTTPRequestHandler):
             return self._serve_image(send_body=True)
 
         if path == "/":
+            self.path = "/home.html"
+        elif path == "/viewer":
             self.path = "/index.html"
 
         return super().do_GET()

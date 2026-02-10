@@ -1,7 +1,6 @@
 const sidebar = document.getElementById('sidebar');
 const toggleSidebarBtn = document.getElementById('toggle-sidebar');
-const subdirSelect = document.getElementById('subdir-select');
-const reloadSubdirsBtn = document.getElementById('reload-subdirs');
+const selectedSubdir = document.getElementById('selected-subdir');
 const imageList = document.getElementById('image-list');
 const mainImage = document.getElementById('main-image');
 const emptyMessage = document.getElementById('empty-message');
@@ -67,9 +66,29 @@ function showImage(index) {
   renderImageList();
 }
 
+async function resolveInitialSubdirectory(rawSubdir) {
+  const data = await fetchJson('/api/subdirectories');
+  const subdirectories = data.subdirectories;
+
+  if (subdirectories.length === 0) {
+    throw new Error('サブディレクトリがありません。');
+  }
+
+  if (!rawSubdir) {
+    return subdirectories[0];
+  }
+
+  if (subdirectories.includes(rawSubdir)) {
+    return rawSubdir;
+  }
+
+  throw new Error(`フォルダ「${rawSubdir}」が見つかりません。`);
+}
+
 async function loadImages(subdir) {
   currentSubdir = subdir;
   currentIndex = -1;
+  selectedSubdir.textContent = `フォルダ: ${subdir}`;
   mainImage.removeAttribute('src');
   mainImage.style.display = 'none';
   emptyMessage.style.display = 'grid';
@@ -91,63 +110,20 @@ async function loadImages(subdir) {
   }
 }
 
-async function refreshSubdirectories(preferredSubdir = '') {
-  const hadCurrentSubdir = Boolean(preferredSubdir);
-  reloadSubdirsBtn.disabled = true;
-
-  try {
-    const data = await fetchJson('/api/subdirectories');
-    const subdirectories = data.subdirectories;
-
-    if (subdirectories.length === 0) {
-      subdirSelect.innerHTML = '';
-      subdirSelect.disabled = true;
-      images = [];
-      currentSubdir = '';
-      currentIndex = -1;
-      renderImageList();
-      mainImage.removeAttribute('src');
-      mainImage.style.display = 'none';
-      emptyMessage.style.display = 'grid';
-      setStatus('サブディレクトリがありません。');
-      return;
-    }
-
-    const nextSubdir =
-      preferredSubdir && subdirectories.includes(preferredSubdir)
-        ? preferredSubdir
-        : subdirectories[0];
-
-    subdirSelect.innerHTML = subdirectories
-      .map((name) => `<option value="${name}">${name}</option>`)
-      .join('');
-    subdirSelect.value = nextSubdir;
-    subdirSelect.disabled = false;
-
-    await loadImages(nextSubdir);
-
-    if (hadCurrentSubdir && preferredSubdir !== nextSubdir) {
-      setStatus(`フォルダ「${preferredSubdir}」が見つからなかったため「${nextSubdir}」を表示しています。`);
-    }
-  } catch (error) {
-    setStatus(`サブディレクトリ一覧の取得に失敗しました: ${error.message}`);
-  } finally {
-    reloadSubdirsBtn.disabled = false;
-  }
-}
-
 async function init() {
   setStatus('読み込み中...');
 
-  subdirSelect.addEventListener('change', (event) => {
-    loadImages(event.target.value);
-  });
-
-  reloadSubdirsBtn.addEventListener('click', () => {
-    refreshSubdirectories(subdirSelect.value || currentSubdir);
-  });
-
-  await refreshSubdirectories();
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const requestedSubdir = params.get('subdir') || '';
+    const subdir = await resolveInitialSubdirectory(requestedSubdir);
+    await loadImages(subdir);
+  } catch (error) {
+    setStatus(error.message);
+    selectedSubdir.textContent = '';
+    images = [];
+    renderImageList();
+  }
 }
 
 document.addEventListener('keydown', (event) => {
