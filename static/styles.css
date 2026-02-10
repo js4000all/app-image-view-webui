@@ -46,7 +46,7 @@ body {
 
 .sidebar.collapsed h1,
 .sidebar.collapsed label,
-.sidebar.collapsed select,
+.sidebar.collapsed .subdir-controls,
 .sidebar.collapsed #image-list {
   display: none;
 }
@@ -65,14 +65,34 @@ h1 {
   cursor: pointer;
 }
 
-#subdir-select {
-  width: 100%;
-  padding: 8px;
+.subdir-controls {
+  display: flex;
+  gap: 8px;
   margin: 8px 0 12px;
+}
+
+#subdir-select {
+  flex: 1;
+  min-width: 0;
+  padding: 8px;
   background: #252c37;
   color: inherit;
   border: 1px solid #465264;
   border-radius: 6px;
+}
+
+#reload-subdirs {
+  border: 1px solid #465264;
+  border-radius: 6px;
+  background: #252c37;
+  color: inherit;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+#reload-subdirs:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 #image-list {
