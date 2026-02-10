@@ -174,7 +174,7 @@ h1 {
   gap: 8px;
 }
 
-.subdir-list a {
+.subdir-card {
   display: block;
   border: 1px solid #465264;
   border-radius: 6px;
@@ -184,8 +184,56 @@ h1 {
   padding: 12px;
 }
 
-.subdir-list a:hover {
+.subdir-card:hover {
   border-color: #88c0d0;
+}
+
+.subdir-meta {
+  margin-bottom: 8px;
+}
+
+.subdir-name {
+  margin: 0;
+  font-weight: 600;
+}
+
+.subdir-thumbs {
+  display: flex;
+  gap: 8px;
+  min-height: 56px;
+  align-items: center;
+}
+
+.subdir-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #1b1f27;
+}
+
+.subdir-thumb-slot {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  overflow: hidden;
+  flex: 0 0 auto;
+  background: #1b1f27;
+}
+
+.subdir-thumb-slot.is-fallback {
+  border: 1px dashed #465264;
+}
+
+.subdir-thumb.is-hidden {
+  display: none;
+}
+
+.subdir-loading,
+.subdir-no-images {
+  margin: 0;
+  color: #9aa5b1;
+  font-size: 0.9rem;
 }
 
 .home-status {
