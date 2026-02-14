@@ -182,6 +182,7 @@ h1 {
   color: inherit;
   text-decoration: none;
   padding: 12px;
+  overflow: hidden;
 }
 
 .subdir-card:hover {
@@ -202,6 +203,8 @@ h1 {
   gap: 8px;
   min-height: 168px;
   align-items: center;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .subdir-thumb {
