@@ -3,6 +3,7 @@ const homeStatus = document.getElementById('home-status');
 const reloadButton = document.getElementById('reload-subdirs');
 
 let thumbnailObserver;
+const SUBDIR_THUMBNAIL_COUNT = 7;
 
 async function fetchJson(url) {
   const response = await fetch(url);
@@ -54,7 +55,7 @@ async function loadSubdirectoryThumbnails(card) {
 
   try {
     const data = await fetchJson(`/api/images/${encodeURIComponent(subdirectory)}`);
-    const images = data.images.slice(0, 5);
+    const images = data.images.slice(0, SUBDIR_THUMBNAIL_COUNT);
 
     thumbnailContainer.innerHTML = '';
 
