@@ -196,6 +196,31 @@ h1 {
   gap: 8px;
 }
 
+
+.subdir-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.subdir-row .subdir-card {
+  flex: 1;
+}
+
+.subdir-rename-button {
+  border: 1px solid #465264;
+  border-radius: 6px;
+  background: #252c37;
+  color: inherit;
+  padding: 0 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.subdir-rename-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 .subdir-card {
   display: block;
   border: 1px solid #465264;

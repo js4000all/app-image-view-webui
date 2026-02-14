@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import mimetypes
+import re
 from email.utils import formatdate, parsedate_to_datetime
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -33,6 +34,30 @@ class ImageViewHandler(SimpleHTTPRequestHandler):
         if not target.is_relative_to(self.base_dir):
             raise PermissionError("path traversal detected")
         return target
+
+    def _read_json_body(self) -> dict:
+        content_length = self.headers.get("Content-Length")
+        if content_length is None:
+            raise ValueError("missing Content-Length")
+
+        try:
+            body_size = int(content_length)
+        except ValueError as exc:
+            raise ValueError("invalid Content-Length") from exc
+
+        if body_size <= 0:
+            raise ValueError("empty body")
+
+        try:
+            raw_body = self.rfile.read(body_size)
+            payload = json.loads(raw_body.decode("utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError("invalid json") from exc
+
+        if not isinstance(payload, dict):
+            raise ValueError("json must be object")
+
+        return payload
 
     def _image_entries(self, directory: Path) -> list[str]:
         return [
@@ -185,6 +210,51 @@ class ImageViewHandler(SimpleHTTPRequestHandler):
             return self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
 
         return self._send_json({"deleted": filename}, status=HTTPStatus.OK)
+
+    def do_PUT(self):
+        path = urlparse(self.path).path
+        if not path.startswith("/api/subdirectories/"):
+            return self.send_error(HTTPStatus.NOT_FOUND)
+
+        current_name = path.removeprefix("/api/subdirectories/")
+        if not current_name:
+            return self.send_error(HTTPStatus.NOT_FOUND)
+
+        try:
+            current_directory = self._safe_path(current_name)
+        except PermissionError:
+            return self.send_error(HTTPStatus.FORBIDDEN)
+
+        if not current_directory.exists() or not current_directory.is_dir():
+            return self.send_error(HTTPStatus.NOT_FOUND)
+
+        try:
+            payload = self._read_json_body()
+        except ValueError:
+            return self.send_error(HTTPStatus.BAD_REQUEST)
+
+        new_name = payload.get("new_name")
+        if not isinstance(new_name, str):
+            return self.send_error(HTTPStatus.BAD_REQUEST)
+
+        stripped_name = new_name.strip()
+        if not stripped_name:
+            return self.send_error(HTTPStatus.BAD_REQUEST)
+        if stripped_name in {".", ".."}:
+            return self.send_error(HTTPStatus.BAD_REQUEST)
+        if re.search(r"[\\/]", stripped_name):
+            return self.send_error(HTTPStatus.BAD_REQUEST)
+
+        destination = self.base_dir / stripped_name
+        if destination.exists():
+            return self.send_error(HTTPStatus.CONFLICT)
+
+        try:
+            current_directory.rename(destination)
+        except OSError:
+            return self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
+
+        return self._send_json({"renamed_from": current_name, "renamed_to": stripped_name}, status=HTTPStatus.OK)
 
 
 def parse_args() -> argparse.Namespace:
