@@ -12,6 +12,22 @@ async function fetchJson(url) {
   return response.json();
 }
 
+async function putJson(url, body) {
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  return response.json();
+}
+
 function setStatus(message) {
   homeStatus.textContent = message;
 }
@@ -116,6 +132,9 @@ function setupThumbnailObserver() {
 function createSubdirectoryCard(name) {
   const li = document.createElement('li');
 
+  const row = document.createElement('div');
+  row.className = 'subdir-row';
+
   const link = document.createElement('a');
   link.className = 'subdir-card';
   link.href = `/viewer?subdir=${encodeURIComponent(name)}`;
@@ -138,7 +157,39 @@ function createSubdirectoryCard(name) {
   thumbs.appendChild(loadingMessage);
 
   link.append(meta, thumbs);
-  li.appendChild(link);
+  row.appendChild(link);
+
+  const renameButton = document.createElement('button');
+  renameButton.type = 'button';
+  renameButton.className = 'subdir-rename-button';
+  renameButton.textContent = '名前変更';
+  renameButton.addEventListener('click', async () => {
+    const newName = window.prompt('新しいディレクトリ名を入力してください。', name);
+    if (newName === null) {
+      return;
+    }
+
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === name) {
+      return;
+    }
+
+    renameButton.disabled = true;
+    setStatus(`「${name}」を「${trimmed}」に変更中...`);
+
+    try {
+      await putJson(`/api/subdirectories/${encodeURIComponent(name)}`, { new_name: trimmed });
+      await refreshSubdirectories();
+      setStatus(`「${name}」を「${trimmed}」に変更しました。`);
+    } catch (error) {
+      setStatus(`ディレクトリ名の変更に失敗しました: ${error.message}`);
+    } finally {
+      renameButton.disabled = false;
+    }
+  });
+
+  row.appendChild(renameButton);
+  li.appendChild(row);
 
   observeCardThumbnails(link);
   return li;
