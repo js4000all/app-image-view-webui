@@ -5,6 +5,8 @@ import argparse
 import json
 import mimetypes
 import re
+import threading
+from uuid import uuid4
 from email.utils import formatdate, parsedate_to_datetime
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -17,6 +19,9 @@ STATIC_DIR = Path(__file__).parent / "static"
 
 class ImageViewHandler(SimpleHTTPRequestHandler):
     base_dir: Path
+    _id_to_path: dict[str, Path] = {}
+    _path_to_id: dict[Path, str] = {}
+    _resource_lock = threading.Lock()
 
     def __init__(self, *args, directory=None, **kwargs):
         super().__init__(*args, directory=str(STATIC_DIR), **kwargs)
@@ -59,34 +64,66 @@ class ImageViewHandler(SimpleHTTPRequestHandler):
 
         return payload
 
-    def _image_entries(self, directory: Path) -> list[str]:
-        return [
-            entry.name
-            for entry in sorted(directory.iterdir())
-            if entry.is_file() and entry.suffix.lower() in IMAGE_EXTENSIONS
-        ]
+    def _register_resource_id(self, path: Path) -> str:
+        resolved_path = path.resolve()
+        with self._resource_lock:
+            resource_id = self._path_to_id.get(resolved_path)
+            if resource_id is None:
+                resource_id = uuid4().hex
+                self._path_to_id[resolved_path] = resource_id
+                self._id_to_path[resource_id] = resolved_path
+            return resource_id
 
-    def _subdirectory_entries(self) -> list[str]:
-        return [entry.name for entry in sorted(self.base_dir.iterdir(), reverse=True) if entry.is_dir()]
+    def _discard_resource_id(self, path: Path) -> None:
+        resolved_path = path.resolve()
+        with self._resource_lock:
+            resource_id = self._path_to_id.pop(resolved_path, None)
+            if resource_id is not None:
+                self._id_to_path.pop(resource_id, None)
+
+    def _resolve_resource_id(self, resource_id: str, *, expect_directory: bool) -> Path | None:
+        with self._resource_lock:
+            path = self._id_to_path.get(resource_id)
+
+        if path is None:
+            return None
+
+        if not path.exists() or not path.is_relative_to(self.base_dir):
+            self._discard_resource_id(path)
+            return None
+
+        if expect_directory and not path.is_dir():
+            return None
+        if not expect_directory and not path.is_file():
+            return None
+
+        return path
+
+    def _image_entries(self, directory: Path) -> list[dict[str, str]]:
+        images: list[dict[str, str]] = []
+        for entry in sorted(directory.iterdir()):
+            if not entry.is_file() or entry.suffix.lower() not in IMAGE_EXTENSIONS:
+                continue
+            images.append({"file_id": self._register_resource_id(entry), "name": entry.name})
+        return images
+
+    def _subdirectory_entries(self) -> list[dict[str, str]]:
+        subdirectories: list[dict[str, str]] = []
+        for entry in sorted(self.base_dir.iterdir(), reverse=True):
+            if not entry.is_dir():
+                continue
+            subdirectories.append({"directory_id": self._register_resource_id(entry), "name": entry.name})
+        return subdirectories
 
     def _serve_image(self, send_body: bool) -> None:
         path = urlparse(self.path).path
-        image_path = path.removeprefix("/api/image/")
-        parts = image_path.split("/")
-        if len(parts) < 2:
+        file_id = path.removeprefix("/api/image/")
+        if not file_id:
             return self.send_error(HTTPStatus.NOT_FOUND)
 
-        subdir = "/".join(parts[:-1])
-        filename = parts[-1]
-
-        try:
-            directory = self._safe_path(subdir)
-            file_path = (directory / unquote(filename)).resolve()
-        except PermissionError:
-            return self.send_error(HTTPStatus.FORBIDDEN)
-
-        if not file_path.is_relative_to(directory):
-            return self.send_error(HTTPStatus.FORBIDDEN)
+        file_path = self._resolve_resource_id(file_id, expect_directory=False)
+        if file_path is None:
+            return self.send_error(HTTPStatus.NOT_FOUND)
         if not file_path.exists() or not file_path.is_file():
             return self.send_error(HTTPStatus.NOT_FOUND)
         if file_path.suffix.lower() not in IMAGE_EXTENSIONS:
@@ -151,16 +188,18 @@ class ImageViewHandler(SimpleHTTPRequestHandler):
             return self._send_json({"subdirectories": self._subdirectory_entries()})
 
         if path.startswith("/api/images/"):
-            subdir = path.removeprefix("/api/images/")
-            try:
-                directory = self._safe_path(subdir)
-            except PermissionError:
-                return self.send_error(HTTPStatus.FORBIDDEN)
-
-            if not directory.exists() or not directory.is_dir():
+            directory_id = path.removeprefix("/api/images/")
+            directory = self._resolve_resource_id(directory_id, expect_directory=True)
+            if directory is None:
                 return self.send_error(HTTPStatus.NOT_FOUND)
 
-            return self._send_json({"subdirectory": subdir, "images": self._image_entries(directory)})
+            return self._send_json(
+                {
+                    "directory_id": directory_id,
+                    "subdirectory": directory.name,
+                    "images": self._image_entries(directory),
+                }
+            )
 
         if path.startswith("/api/image/"):
             return self._serve_image(send_body=True)
@@ -183,22 +222,13 @@ class ImageViewHandler(SimpleHTTPRequestHandler):
         if not path.startswith("/api/image/"):
             return self.send_error(HTTPStatus.NOT_FOUND)
 
-        image_path = path.removeprefix("/api/image/")
-        parts = image_path.split("/")
-        if len(parts) < 2:
+        file_id = path.removeprefix("/api/image/")
+        if not file_id:
             return self.send_error(HTTPStatus.NOT_FOUND)
 
-        subdir = "/".join(parts[:-1])
-        filename = parts[-1]
-
-        try:
-            directory = self._safe_path(subdir)
-            file_path = (directory / unquote(filename)).resolve()
-        except PermissionError:
-            return self.send_error(HTTPStatus.FORBIDDEN)
-
-        if not file_path.is_relative_to(directory):
-            return self.send_error(HTTPStatus.FORBIDDEN)
+        file_path = self._resolve_resource_id(file_id, expect_directory=False)
+        if file_path is None:
+            return self.send_error(HTTPStatus.NOT_FOUND)
         if file_path.suffix.lower() not in IMAGE_EXTENSIONS:
             return self.send_error(HTTPStatus.UNSUPPORTED_MEDIA_TYPE)
         if not file_path.exists() or not file_path.is_file():
@@ -209,23 +239,21 @@ class ImageViewHandler(SimpleHTTPRequestHandler):
         except OSError:
             return self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
 
-        return self._send_json({"deleted": filename}, status=HTTPStatus.OK)
+        self._discard_resource_id(file_path)
+
+        return self._send_json({"deleted": file_path.name, "file_id": file_id}, status=HTTPStatus.OK)
 
     def do_PUT(self):
         path = urlparse(self.path).path
         if not path.startswith("/api/subdirectories/"):
             return self.send_error(HTTPStatus.NOT_FOUND)
 
-        current_name = path.removeprefix("/api/subdirectories/")
-        if not current_name:
+        directory_id = path.removeprefix("/api/subdirectories/")
+        if not directory_id:
             return self.send_error(HTTPStatus.NOT_FOUND)
 
-        try:
-            current_directory = self._safe_path(current_name)
-        except PermissionError:
-            return self.send_error(HTTPStatus.FORBIDDEN)
-
-        if not current_directory.exists() or not current_directory.is_dir():
+        current_directory = self._resolve_resource_id(directory_id, expect_directory=True)
+        if current_directory is None:
             return self.send_error(HTTPStatus.NOT_FOUND)
 
         try:
@@ -254,7 +282,17 @@ class ImageViewHandler(SimpleHTTPRequestHandler):
         except OSError:
             return self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
 
-        return self._send_json({"renamed_from": current_name, "renamed_to": stripped_name}, status=HTTPStatus.OK)
+        self._discard_resource_id(current_directory)
+        new_directory_id = self._register_resource_id(destination)
+
+        return self._send_json(
+            {
+                "directory_id": new_directory_id,
+                "renamed_from": current_directory.name,
+                "renamed_to": stripped_name,
+            },
+            status=HTTPStatus.OK,
+        )
 
 
 def parse_args() -> argparse.Namespace:
