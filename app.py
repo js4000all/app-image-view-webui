@@ -153,6 +153,39 @@ class ImageViewHandler(SimpleHTTPRequestHandler):
             return self._serve_image(send_body=False)
         return super().do_HEAD()
 
+    def do_DELETE(self):
+        path = urlparse(self.path).path
+        if not path.startswith("/api/image/"):
+            return self.send_error(HTTPStatus.NOT_FOUND)
+
+        image_path = path.removeprefix("/api/image/")
+        parts = image_path.split("/")
+        if len(parts) < 2:
+            return self.send_error(HTTPStatus.NOT_FOUND)
+
+        subdir = "/".join(parts[:-1])
+        filename = parts[-1]
+
+        try:
+            directory = self._safe_path(subdir)
+            file_path = (directory / unquote(filename)).resolve()
+        except PermissionError:
+            return self.send_error(HTTPStatus.FORBIDDEN)
+
+        if not file_path.is_relative_to(directory):
+            return self.send_error(HTTPStatus.FORBIDDEN)
+        if file_path.suffix.lower() not in IMAGE_EXTENSIONS:
+            return self.send_error(HTTPStatus.UNSUPPORTED_MEDIA_TYPE)
+        if not file_path.exists() or not file_path.is_file():
+            return self.send_error(HTTPStatus.NOT_FOUND)
+
+        try:
+            file_path.unlink()
+        except OSError:
+            return self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
+
+        return self._send_json({"deleted": filename}, status=HTTPStatus.OK)
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Image viewer web UI")
