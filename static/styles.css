@@ -7,15 +7,21 @@
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
+  width: 100%;
+  height: 100%;
+}
+
+body {
   background: #101216;
   color: #eceff4;
-  min-height: 100vh;
+  overflow: hidden;
 }
 
 .main {
-  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -23,23 +29,25 @@ body {
   gap: 8px;
   background: #171b22;
   overflow: hidden;
+  min-height: 0;
 }
 
 .image-stage {
   flex: 1;
   min-height: 0;
   width: 100%;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   position: relative;
   overflow: hidden;
 }
 
 #main-image {
+  width: 100%;
+  height: 100%;
   max-width: 100%;
   max-height: 100%;
-  width: auto;
-  height: auto;
   object-fit: contain;
   display: none;
 }
