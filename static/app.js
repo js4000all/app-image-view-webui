@@ -1,7 +1,7 @@
-const sidebar = document.getElementById('sidebar');
-const toggleSidebarBtn = document.getElementById('toggle-sidebar');
 const selectedSubdir = document.getElementById('selected-subdir');
-const imageList = document.getElementById('image-list');
+const imageIndex = document.getElementById('image-index');
+const imageName = document.getElementById('image-name');
+const deleteCurrentImageButton = document.getElementById('delete-current-image');
 const mainImage = document.getElementById('main-image');
 const emptyMessage = document.getElementById('empty-message');
 const status = document.getElementById('status');
@@ -10,10 +10,6 @@ const mainPane = document.querySelector('.main');
 let images = [];
 let currentDirectory = null;
 let currentIndex = -1;
-
-toggleSidebarBtn.addEventListener('click', () => {
-  sidebar.classList.toggle('collapsed');
-});
 
 async function fetchJson(url) {
   const response = await fetch(url);
@@ -27,51 +23,36 @@ function setStatus(message) {
   status.textContent = message;
 }
 
-function renderImageList() {
-  imageList.innerHTML = '';
+function updateFooter() {
+  if (currentDirectory) {
+    selectedSubdir.textContent = `フォルダ: ${currentDirectory.name}`;
+  } else {
+    selectedSubdir.textContent = '';
+  }
 
-  images.forEach((image, index) => {
-    const li = document.createElement('li');
-    const row = document.createElement('div');
-    row.classList.add('image-list-row');
+  if (currentIndex < 0 || currentIndex >= images.length) {
+    imageIndex.textContent = '0 / 0';
+    imageName.textContent = '';
+    deleteCurrentImageButton.disabled = true;
+    return;
+  }
 
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.classList.add('image-item-button');
-    button.textContent = image.name;
-    if (index === currentIndex) {
-      button.classList.add('active');
-    }
-    button.addEventListener('click', () => showImage(index));
-
-    const deleteButton = document.createElement('button');
-    deleteButton.type = 'button';
-    deleteButton.classList.add('image-delete-button');
-    deleteButton.textContent = '削除';
-    deleteButton.setAttribute('aria-label', `画像「${image.name}」を削除`);
-    deleteButton.addEventListener('click', async (event) => {
-      event.stopPropagation();
-      await deleteImage(image);
-    });
-
-    row.appendChild(button);
-    row.appendChild(deleteButton);
-    li.appendChild(row);
-    imageList.appendChild(li);
-  });
+  imageIndex.textContent = `${currentIndex + 1} / ${images.length}`;
+  imageName.textContent = images[currentIndex].name;
+  deleteCurrentImageButton.disabled = false;
 }
 
 async function reloadImagesAfterDelete() {
   const previousFileId = images[currentIndex]?.file_id || '';
   const data = await fetchJson(`/api/images/${encodeURIComponent(currentDirectory.directory_id)}`);
   images = data.images;
-  renderImageList();
 
   if (images.length === 0) {
     currentIndex = -1;
     mainImage.removeAttribute('src');
     mainImage.style.display = 'none';
     emptyMessage.style.display = 'grid';
+    updateFooter();
     setStatus('画像が見つかりません。');
     return;
   }
@@ -116,8 +97,8 @@ function showImage(index) {
   mainImage.src = `/api/image/${encodeURIComponent(image.file_id)}`;
   mainImage.style.display = 'block';
   emptyMessage.style.display = 'none';
+  updateFooter();
   setStatus(`${currentIndex + 1} / ${images.length}: ${image.name}`);
-  renderImageList();
 }
 
 async function resolveInitialDirectory(requestedDirectoryId) {
@@ -143,7 +124,7 @@ async function resolveInitialDirectory(requestedDirectoryId) {
 async function loadImages(directory) {
   currentDirectory = directory;
   currentIndex = -1;
-  selectedSubdir.textContent = `フォルダ: ${directory.name}`;
+  updateFooter();
   mainImage.removeAttribute('src');
   mainImage.style.display = 'none';
   emptyMessage.style.display = 'grid';
@@ -151,16 +132,16 @@ async function loadImages(directory) {
   try {
     const data = await fetchJson(`/api/images/${encodeURIComponent(directory.directory_id)}`);
     images = data.images;
-    renderImageList();
 
     if (images.length > 0) {
       showImage(0);
     } else {
+      updateFooter();
       setStatus('画像が見つかりません。');
     }
   } catch (error) {
     images = [];
-    renderImageList();
+    updateFooter();
     setStatus(`画像一覧の取得に失敗しました: ${error.message}`);
   }
 }
@@ -177,7 +158,8 @@ async function init() {
     setStatus(error.message);
     selectedSubdir.textContent = '';
     images = [];
-    renderImageList();
+    currentIndex = -1;
+    updateFooter();
   }
 }
 
@@ -216,4 +198,13 @@ if (mainPane) {
   );
 }
 
+deleteCurrentImageButton.addEventListener('click', async () => {
+  if (currentIndex < 0 || currentIndex >= images.length) {
+    return;
+  }
+
+  await deleteImage(images[currentIndex]);
+});
+
+updateFooter();
 init();
