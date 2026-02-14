@@ -8,7 +8,7 @@ const status = document.getElementById('status');
 const mainPane = document.querySelector('.main');
 
 let images = [];
-let currentSubdir = '';
+let currentDirectory = null;
 let currentIndex = -1;
 
 toggleSidebarBtn.addEventListener('click', () => {
@@ -27,17 +27,10 @@ function setStatus(message) {
   status.textContent = message;
 }
 
-function encodePathSegment(value) {
-  return value
-    .split('/')
-    .map((segment) => encodeURIComponent(segment))
-    .join('/');
-}
-
 function renderImageList() {
   imageList.innerHTML = '';
 
-  images.forEach((imageName, index) => {
+  images.forEach((image, index) => {
     const li = document.createElement('li');
     const row = document.createElement('div');
     row.classList.add('image-list-row');
@@ -45,7 +38,7 @@ function renderImageList() {
     const button = document.createElement('button');
     button.type = 'button';
     button.classList.add('image-item-button');
-    button.textContent = imageName;
+    button.textContent = image.name;
     if (index === currentIndex) {
       button.classList.add('active');
     }
@@ -55,10 +48,10 @@ function renderImageList() {
     deleteButton.type = 'button';
     deleteButton.classList.add('image-delete-button');
     deleteButton.textContent = '削除';
-    deleteButton.setAttribute('aria-label', `画像「${imageName}」を削除`);
+    deleteButton.setAttribute('aria-label', `画像「${image.name}」を削除`);
     deleteButton.addEventListener('click', async (event) => {
       event.stopPropagation();
-      await deleteImage(imageName);
+      await deleteImage(image);
     });
 
     row.appendChild(button);
@@ -69,8 +62,8 @@ function renderImageList() {
 }
 
 async function reloadImagesAfterDelete() {
-  const previousImageName = images[currentIndex] || '';
-  const data = await fetchJson(`/api/images/${encodePathSegment(currentSubdir)}`);
+  const previousFileId = images[currentIndex]?.file_id || '';
+  const data = await fetchJson(`/api/images/${encodeURIComponent(currentDirectory.directory_id)}`);
   images = data.images;
   renderImageList();
 
@@ -83,7 +76,7 @@ async function reloadImagesAfterDelete() {
     return;
   }
 
-  const targetIndex = images.indexOf(previousImageName);
+  const targetIndex = images.findIndex((image) => image.file_id === previousFileId);
   if (targetIndex >= 0) {
     showImage(targetIndex);
     return;
@@ -92,15 +85,13 @@ async function reloadImagesAfterDelete() {
   showImage(Math.min(currentIndex, images.length - 1));
 }
 
-async function deleteImage(imageName) {
-  if (!currentSubdir) {
+async function deleteImage(image) {
+  if (!currentDirectory) {
     return;
   }
 
   try {
-    const encodedSubdir = encodePathSegment(currentSubdir);
-    const encodedImage = encodePathSegment(imageName);
-    const response = await fetch(`/api/image/${encodedSubdir}/${encodedImage}`, {
+    const response = await fetch(`/api/image/${encodeURIComponent(image.file_id)}`, {
       method: 'DELETE',
     });
 
@@ -109,7 +100,7 @@ async function deleteImage(imageName) {
     }
 
     await reloadImagesAfterDelete();
-    setStatus(`画像を削除しました: ${imageName}`);
+    setStatus(`画像を削除しました: ${image.name}`);
   } catch (error) {
     setStatus(`画像の削除に失敗しました: ${error.message}`);
   }
@@ -121,17 +112,15 @@ function showImage(index) {
   }
 
   currentIndex = index;
-  const imageName = images[index];
-  const encodedSubdir = encodePathSegment(currentSubdir);
-  const encodedImage = encodePathSegment(imageName);
-  mainImage.src = `/api/image/${encodedSubdir}/${encodedImage}`;
+  const image = images[index];
+  mainImage.src = `/api/image/${encodeURIComponent(image.file_id)}`;
   mainImage.style.display = 'block';
   emptyMessage.style.display = 'none';
-  setStatus(`${currentIndex + 1} / ${images.length}: ${imageName}`);
+  setStatus(`${currentIndex + 1} / ${images.length}: ${image.name}`);
   renderImageList();
 }
 
-async function resolveInitialSubdirectory(rawSubdir) {
+async function resolveInitialDirectory(requestedDirectoryId) {
   const data = await fetchJson('/api/subdirectories');
   const subdirectories = data.subdirectories;
 
@@ -139,27 +128,28 @@ async function resolveInitialSubdirectory(rawSubdir) {
     throw new Error('サブディレクトリがありません。');
   }
 
-  if (!rawSubdir) {
+  if (!requestedDirectoryId) {
     return subdirectories[0];
   }
 
-  if (subdirectories.includes(rawSubdir)) {
-    return rawSubdir;
+  const matched = subdirectories.find((subdirectory) => subdirectory.directory_id === requestedDirectoryId);
+  if (matched) {
+    return matched;
   }
 
-  throw new Error(`フォルダ「${rawSubdir}」が見つかりません。`);
+  throw new Error('指定されたフォルダが見つかりません。');
 }
 
-async function loadImages(subdir) {
-  currentSubdir = subdir;
+async function loadImages(directory) {
+  currentDirectory = directory;
   currentIndex = -1;
-  selectedSubdir.textContent = `フォルダ: ${subdir}`;
+  selectedSubdir.textContent = `フォルダ: ${directory.name}`;
   mainImage.removeAttribute('src');
   mainImage.style.display = 'none';
   emptyMessage.style.display = 'grid';
 
   try {
-    const data = await fetchJson(`/api/images/${encodePathSegment(subdir)}`);
+    const data = await fetchJson(`/api/images/${encodeURIComponent(directory.directory_id)}`);
     images = data.images;
     renderImageList();
 
@@ -180,9 +170,9 @@ async function init() {
 
   try {
     const params = new URLSearchParams(window.location.search);
-    const requestedSubdir = params.get('subdir') || '';
-    const subdir = await resolveInitialSubdirectory(requestedSubdir);
-    await loadImages(subdir);
+    const requestedDirectoryId = params.get('directory_id') || '';
+    const directory = await resolveInitialDirectory(requestedDirectoryId);
+    await loadImages(directory);
   } catch (error) {
     setStatus(error.message);
     selectedSubdir.textContent = '';

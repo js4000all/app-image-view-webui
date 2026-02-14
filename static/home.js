@@ -40,7 +40,7 @@ function addEmptyThumbnailMessage(thumbnailContainer) {
   thumbnailContainer.appendChild(emptyMessage);
 }
 
-function createThumbnailElement(subdirectory, filename) {
+function createThumbnailElement(subdirectoryName, image) {
   const wrapper = document.createElement('div');
   wrapper.className = 'subdir-thumb-slot';
 
@@ -48,8 +48,8 @@ function createThumbnailElement(subdirectory, filename) {
   img.className = 'subdir-thumb';
   img.loading = 'lazy';
   img.decoding = 'async';
-  img.src = `/api/image/${encodeURIComponent(subdirectory)}/${encodeURIComponent(filename)}`;
-  img.alt = `${subdirectory} のサムネイル ${filename}`;
+  img.src = `/api/image/${encodeURIComponent(image.file_id)}`;
+  img.alt = `${subdirectoryName} のサムネイル ${image.name}`;
   img.onerror = () => {
     img.classList.add('is-hidden');
     wrapper.classList.add('is-fallback');
@@ -65,11 +65,12 @@ async function loadSubdirectoryThumbnails(card) {
   }
 
   card.dataset.loadingThumbnails = 'true';
-  const subdirectory = card.dataset.subdirectory;
+  const directoryId = card.dataset.directoryId;
+  const subdirectoryName = card.dataset.subdirectoryName;
   const thumbnailContainer = card.querySelector('.subdir-thumbs');
 
   try {
-    const data = await fetchJson(`/api/images/${encodeURIComponent(subdirectory)}`);
+    const data = await fetchJson(`/api/images/${encodeURIComponent(directoryId)}`);
     const images = data.images.slice(0, 5);
 
     thumbnailContainer.innerHTML = '';
@@ -77,8 +78,8 @@ async function loadSubdirectoryThumbnails(card) {
     if (images.length === 0) {
       addEmptyThumbnailMessage(thumbnailContainer);
     } else {
-      images.forEach((filename) => {
-        thumbnailContainer.appendChild(createThumbnailElement(subdirectory, filename));
+      images.forEach((image) => {
+        thumbnailContainer.appendChild(createThumbnailElement(subdirectoryName, image));
       });
     }
 
@@ -129,7 +130,7 @@ function setupThumbnailObserver() {
   }
 }
 
-function createSubdirectoryCard(name) {
+function createSubdirectoryCard(subdirectory) {
   const li = document.createElement('li');
 
   const row = document.createElement('div');
@@ -137,15 +138,16 @@ function createSubdirectoryCard(name) {
 
   const link = document.createElement('a');
   link.className = 'subdir-card';
-  link.href = `/viewer?subdir=${encodeURIComponent(name)}`;
-  link.dataset.subdirectory = name;
+  link.href = `/viewer?directory_id=${encodeURIComponent(subdirectory.directory_id)}`;
+  link.dataset.directoryId = subdirectory.directory_id;
+  link.dataset.subdirectoryName = subdirectory.name;
 
   const meta = document.createElement('div');
   meta.className = 'subdir-meta';
 
   const title = document.createElement('p');
   title.className = 'subdir-name';
-  title.textContent = name;
+  title.textContent = subdirectory.name;
   meta.appendChild(title);
 
   const thumbs = document.createElement('div');
@@ -164,23 +166,23 @@ function createSubdirectoryCard(name) {
   renameButton.className = 'subdir-rename-button';
   renameButton.textContent = '名前変更';
   renameButton.addEventListener('click', async () => {
-    const newName = window.prompt('新しいディレクトリ名を入力してください。', name);
+    const newName = window.prompt('新しいディレクトリ名を入力してください。', subdirectory.name);
     if (newName === null) {
       return;
     }
 
     const trimmed = newName.trim();
-    if (!trimmed || trimmed === name) {
+    if (!trimmed || trimmed === subdirectory.name) {
       return;
     }
 
     renameButton.disabled = true;
-    setStatus(`「${name}」を「${trimmed}」に変更中...`);
+    setStatus(`「${subdirectory.name}」を「${trimmed}」に変更中...`);
 
     try {
-      await putJson(`/api/subdirectories/${encodeURIComponent(name)}`, { new_name: trimmed });
+      await putJson(`/api/subdirectories/${encodeURIComponent(subdirectory.directory_id)}`, { new_name: trimmed });
       await refreshSubdirectories();
-      setStatus(`「${name}」を「${trimmed}」に変更しました。`);
+      setStatus(`「${subdirectory.name}」を「${trimmed}」に変更しました。`);
     } catch (error) {
       setStatus(`ディレクトリ名の変更に失敗しました: ${error.message}`);
     } finally {
@@ -199,8 +201,8 @@ function renderSubdirectories(subdirectories) {
   subdirList.innerHTML = '';
   setupThumbnailObserver();
 
-  subdirectories.forEach((name) => {
-    subdirList.appendChild(createSubdirectoryCard(name));
+  subdirectories.forEach((subdirectory) => {
+    subdirList.appendChild(createSubdirectoryCard(subdirectory));
   });
 }
 
