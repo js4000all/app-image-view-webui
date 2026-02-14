@@ -34,6 +34,48 @@ class ImageViewHandler(SimpleHTTPRequestHandler):
             raise PermissionError("path traversal detected")
         return target
 
+    def _valid_subdirectory_name(self, name: str) -> bool:
+        return bool(name) and name not in {".", ".."} and "/" not in name and "\\" not in name
+
+    def _rename_subdirectory(self) -> None:
+        content_length = self.headers.get("Content-Length")
+        if not content_length:
+            return self._send_json({"error": "missing request body"}, status=HTTPStatus.BAD_REQUEST)
+
+        try:
+            body = self.rfile.read(int(content_length))
+            payload = json.loads(body)
+        except (ValueError, json.JSONDecodeError):
+            return self._send_json({"error": "invalid JSON"}, status=HTTPStatus.BAD_REQUEST)
+
+        old_name = str(payload.get("old_name", "")).strip()
+        new_name = str(payload.get("new_name", "")).strip()
+
+        if not self._valid_subdirectory_name(old_name) or not self._valid_subdirectory_name(new_name):
+            return self._send_json({"error": "invalid subdirectory name"}, status=HTTPStatus.BAD_REQUEST)
+
+        try:
+            source = self._safe_path(old_name)
+            destination = self._safe_path(new_name)
+        except PermissionError:
+            return self._send_json({"error": "path traversal detected"}, status=HTTPStatus.FORBIDDEN)
+
+        if source.parent != self.base_dir or destination.parent != self.base_dir:
+            return self._send_json({"error": "only direct child directories are supported"}, status=HTTPStatus.BAD_REQUEST)
+
+        if not source.exists() or not source.is_dir():
+            return self._send_json({"error": "source directory not found"}, status=HTTPStatus.NOT_FOUND)
+
+        if destination.exists():
+            return self._send_json({"error": "destination already exists"}, status=HTTPStatus.CONFLICT)
+
+        try:
+            source.rename(destination)
+        except OSError:
+            return self._send_json({"error": "failed to rename directory"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+
+        return self._send_json({"renamed": {"old_name": old_name, "new_name": new_name}})
+
     def _image_entries(self, directory: Path) -> list[str]:
         return [
             entry.name
@@ -152,6 +194,12 @@ class ImageViewHandler(SimpleHTTPRequestHandler):
         if path.startswith("/api/image/"):
             return self._serve_image(send_body=False)
         return super().do_HEAD()
+
+    def do_POST(self):
+        path = urlparse(self.path).path
+        if path == "/api/subdirectories/rename":
+            return self._rename_subdirectory()
+        return self.send_error(HTTPStatus.NOT_FOUND)
 
 
 def parse_args() -> argparse.Namespace:
