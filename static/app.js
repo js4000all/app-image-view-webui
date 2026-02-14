@@ -39,15 +39,80 @@ function renderImageList() {
 
   images.forEach((imageName, index) => {
     const li = document.createElement('li');
+    const row = document.createElement('div');
+    row.classList.add('image-list-row');
+
     const button = document.createElement('button');
+    button.type = 'button';
+    button.classList.add('image-item-button');
     button.textContent = imageName;
     if (index === currentIndex) {
       button.classList.add('active');
     }
     button.addEventListener('click', () => showImage(index));
-    li.appendChild(button);
+
+    const deleteButton = document.createElement('button');
+    deleteButton.type = 'button';
+    deleteButton.classList.add('image-delete-button');
+    deleteButton.textContent = '削除';
+    deleteButton.setAttribute('aria-label', `画像「${imageName}」を削除`);
+    deleteButton.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      await deleteImage(imageName);
+    });
+
+    row.appendChild(button);
+    row.appendChild(deleteButton);
+    li.appendChild(row);
     imageList.appendChild(li);
   });
+}
+
+async function reloadImagesAfterDelete() {
+  const previousImageName = images[currentIndex] || '';
+  const data = await fetchJson(`/api/images/${encodePathSegment(currentSubdir)}`);
+  images = data.images;
+  renderImageList();
+
+  if (images.length === 0) {
+    currentIndex = -1;
+    mainImage.removeAttribute('src');
+    mainImage.style.display = 'none';
+    emptyMessage.style.display = 'grid';
+    setStatus('画像が見つかりません。');
+    return;
+  }
+
+  const targetIndex = images.indexOf(previousImageName);
+  if (targetIndex >= 0) {
+    showImage(targetIndex);
+    return;
+  }
+
+  showImage(Math.min(currentIndex, images.length - 1));
+}
+
+async function deleteImage(imageName) {
+  if (!currentSubdir) {
+    return;
+  }
+
+  try {
+    const encodedSubdir = encodePathSegment(currentSubdir);
+    const encodedImage = encodePathSegment(imageName);
+    const response = await fetch(`/api/image/${encodedSubdir}/${encodedImage}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    await reloadImagesAfterDelete();
+    setStatus(`画像を削除しました: ${imageName}`);
+  } catch (error) {
+    setStatus(`画像の削除に失敗しました: ${error.message}`);
+  }
 }
 
 function showImage(index) {
