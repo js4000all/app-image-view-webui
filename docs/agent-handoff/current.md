@@ -1,20 +1,21 @@
 ## Context Handoff
-- Goal: 閲覧画面で `Escape` キーを押したときにホーム画面（`/`）へ戻れるようにし、既存の左右キー移動・削除導線を維持する。
+- Goal: 閲覧画面で `Delete` キー押下時に、削除ボタン押下と同じ画像削除処理を実行できるようにする。
 - Changes:
-  - `frontend/src/features/viewer/pages/ViewerPage.tsx` のキーボードイベントに `Escape` 分岐を追加し、`window.location.assign('/')` でホームへ遷移するように変更。
-  - `tests/e2e/test_ui_flow.py` に `Escape` キーでホームへ戻る挙動のE2E検証を追加（ホーム復帰後に再度 viewer へ入り、既存の削除フローまで継続検証）。
-  - `npm run build:bundle` を再実行し、`static/viewer-app/assets` の生成物を更新。
+  - `frontend/src/features/viewer/pages/ViewerPage.tsx` のキーボードイベントに `Delete` 分岐を追加し、`deleteCurrentImage` を呼び出すように変更。
+  - 上記ハンドラ `useEffect` の依存配列に `deleteCurrentImage` を追加して、フック依存を明示。
+  - `tests/e2e/test_ui_flow.py` の削除検証をボタンクリックから `Delete` キー操作へ変更し、同等動作をE2Eで確認可能にした。
+  - `npm run build:bundle` 実行により `static/viewer-app/assets` のバンドル成果物を更新。
 - Decisions:
-  - Decision: `Escape` は React Router 導入ではなく `window.location.assign('/')` で遷移させる実装を採用。
-  - Rationale: 現行構成がURL直遷移ベースであり、最小差分で既存のページ遷移モデルを維持できるため。
-  - Impact: 閲覧画面でのキーボード操作にホーム復帰ショートカットが追加される。
+  - Decision: 既存の削除ロジック関数 `deleteCurrentImage` を `Delete` キーから直接呼ぶ実装を採用。
+  - Rationale: ボタンの onClick と同一ロジックを再利用し、挙動差異を生みにくい最小差分で要件を満たせるため。
+  - Impact: 閲覧画面でキーボードのみでも削除操作が完結する。
 - Open Questions:
-  - browser tool（Playwright container）から `#subdir-list .subdir-card` を取得できず、UIスクリーンショット取得は未完了（接続先不一致の可能性）。
+  - `Delete` キーの誤操作防止（確認ダイアログなど）を今後追加するかは未決。
 - Verification:
+  - `cd frontend && npm run build:bundle`（成功）
+  - `pytest -q`（初回失敗: `httpx`/`playwright` 未導入）
   - `pip install -r requirements-dev.txt`（成功）
   - `python -m playwright install chromium`（成功）
-  - `python -m playwright install --with-deps chromium`（成功、apt mirror 一部 403 警告あり）
-  - `cd frontend && npm ci`（成功）
-  - `cd frontend && npm run build:bundle`（成功）
+  - `pytest -q`（2回目失敗: `libatk-1.0.so.0` 不足）
+  - `python -m playwright install --with-deps chromium`（成功、apt mirror `mise.jdx.dev` 403 警告あり）
   - `pytest -q`（成功: 7 passed）
-  - `mcp__browser_tools__run_playwright_script`（失敗: selector timeout でスクリーンショット取得不可）

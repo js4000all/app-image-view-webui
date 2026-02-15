@@ -38,7 +38,7 @@ def test_ui_navigation_and_delete_flow(live_server: str) -> None:
         expect(page.locator("#image-index")).to_have_text("1 / 2")
         expect(page.locator("#image-name")).to_have_text("Aurelion.png")
 
-        page.click("#delete-current-image")
+        page.keyboard.press("Delete")
         expect(page.locator("#image-index")).to_have_text("1 / 1")
         expect(page.locator("#image-name")).to_have_text("cat1.png")
 
