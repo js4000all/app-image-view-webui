@@ -8,10 +8,11 @@ type SubdirectoryCardProps = {
   thumbnailState: ThumbnailState | undefined
   registerCard: (directoryId: string, element: HTMLAnchorElement | null) => void
   onRenameComplete: (subdirectory: DirectoryEntry) => Promise<void>
+  onOpenViewer: (directoryId: string) => void
 }
 
 export function SubdirectoryCard(props: SubdirectoryCardProps) {
-  const { subdirectory, thumbnailState, registerCard, onRenameComplete } = props
+  const { subdirectory, thumbnailState, registerCard, onRenameComplete, onOpenViewer } = props
   const [renaming, setRenaming] = useState(false)
 
   const thumbnailContent = useMemo(() => {
@@ -62,6 +63,10 @@ export function SubdirectoryCard(props: SubdirectoryCardProps) {
         <a
           className="subdir-card"
           href={`/viewer?directory_id=${encodeURIComponent(subdirectory.directory_id)}`}
+          onClick={(event) => {
+            event.preventDefault()
+            onOpenViewer(subdirectory.directory_id)
+          }}
           ref={(element) => registerCard(subdirectory.directory_id, element)}
         >
           <div className="subdir-meta">

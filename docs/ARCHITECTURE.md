@@ -9,7 +9,7 @@
 - **テスト**: pytest（API / E2E）
 - **配信方式**:
   - `/` は `static/home-app/index.html`（Reactビルド成果物）を配信
-  - `/viewer` は `static/viewer-app/viewer.html`（Reactビルド成果物）を配信
+  - `/viewer` も同一の `static/home-app/index.html`（SPA）を配信
   - `/api/*` は FastAPI の JSON API
 
 ---
@@ -26,8 +26,7 @@
   - `src/features/home/`: ホーム画面の機能単位モジュール
   - `src/features/viewer/`: 閲覧画面の機能単位モジュール
 - `static/`: 配信される静的ファイル
-  - `home-app/`: ホーム画面の React ビルド成果物
-  - `viewer-app/`: 閲覧画面の React ビルド成果物
+  - `home-app/`: SPA の React ビルド成果物
   - `styles.css`: 共通スタイル
 - `tests/`: API / E2E テスト
 - `docs/`: 運用・設計ドキュメント
@@ -74,7 +73,7 @@
 1. **まず回帰防止**: 一覧表示と viewer 遷移の基本導線を壊さない。
 2. **最小差分**: 無関係な整形や命名変更を混ぜない。
 3. **成果物更新**: `frontend` 変更時はビルドし、`static/home-app/` の成果物差分も確認する。
-4. **検証を記録**: 実行コマンドと結果を `docs/agent-handoff/current.md` に残す。
+4. **検証を記録**: 実行コマンドと結果を `docs/agent-handoff/tasks/*.md` に残す。
 
 ---
 

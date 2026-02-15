@@ -4,9 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "build:home": "vite build --config vite.home.config.ts && rm -rf ../static/home-app && mkdir -p ../static/home-app && cp -R dist-home/* ../static/home-app/",
-    "build:viewer": "vite build --config vite.viewer.config.ts",
-    "build:bundle": "npm run build:home && npm run build:viewer",
+    "build:bundle": "vite build",
     "check": "npm run build:bundle"
   },
   "dependencies": {

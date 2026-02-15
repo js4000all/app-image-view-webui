@@ -5,7 +5,12 @@ import { useSubdirectories } from '../hooks/useSubdirectories'
 import { useSubdirectoryThumbnails } from '../hooks/useSubdirectoryThumbnails'
 import type { DirectoryEntry } from '../../../types/home'
 
-export function HomePage() {
+type HomePageProps = {
+  onOpenViewer: (directoryId: string) => void
+}
+
+export function HomePage(props: HomePageProps) {
+  const { onOpenViewer } = props
   const { subdirectories, status, loading, refreshSubdirectories, setStatus } = useSubdirectories()
   const { thumbnails, registerCard, resetThumbnails } = useSubdirectoryThumbnails(subdirectories)
 
@@ -44,6 +49,7 @@ export function HomePage() {
             registerCard={registerCard}
             thumbnailState={thumbnails[subdirectory.directory_id]}
             onRenameComplete={handleRenameComplete}
+            onOpenViewer={onOpenViewer}
           />
         ))}
       </ul>
