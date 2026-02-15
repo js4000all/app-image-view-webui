@@ -35,13 +35,17 @@ export function ViewerPage() {
       if (event.key === 'Escape') {
         window.location.assign('/')
       }
+
+      if (event.key === 'Delete') {
+        void deleteCurrentImage()
+      }
     }
 
     document.addEventListener('keydown', handleKeyDown)
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [moveNext, movePrevious])
+  }, [deleteCurrentImage, moveNext, movePrevious])
 
   useEffect(() => {
     const handleWheel = (event: WheelEvent) => {
