@@ -1,25 +1,17 @@
 ## Context Handoff
-- Goal: ホーム画面（`/`）を既存 UX を維持したまま React 実装へ移行し、サブディレクトリ一覧・遷移・リネーム・サムネイル表示の導線を非破壊で置き換える。
+- Goal: React マイグレーション後のホーム画面を正式採用し、旧ホーム実装ファイル（`static/home.html`, `static/home.js`）を削除してルート配信の実体を一本化する。
 - Changes:
-  - `frontend/src/App.tsx` を全面更新し、ホーム画面の一覧取得・再読み込み・ディレクトリ名変更・サムネイル遅延読み込み（IntersectionObserver）を React で実装。
-  - `frontend/index.html` / `frontend/vite.config.ts` / `frontend/package.json` を更新し、ホーム画面バンドルを `static/home-app/` に出力する構成へ変更。
-  - `app/main.py` の `/` ルートを `static/home-app/index.html` 配信へ切り替え、旧 `react-hello` ルートを削除。
-  - `static/react-hello/` を削除し、`npm run build:bundle` で `static/home-app/` の成果物を生成。
-  - `.github/workflows/ui-build.yml` と `README.md` を更新し、成果物パスと運用手順を `home-app` ベースに同期。
+  - `static/home.html` を削除。
+  - `static/home.js` を削除。
+  - ルート配信先（`app/main.py` の `/`）が `static/home-app/index.html` であることを確認（追加修正不要）。
 - Decisions:
-  - Decision: ホーム画面のみを React へ移行し、閲覧画面（`/viewer`）は既存静的 UI を維持する。
-  - Rationale: 要求対象を最小差分で満たしつつ、画像閲覧導線の既存安定性を優先するため。
-  - Impact: ルート画面の実装基盤は React 化されるが、viewer 側の挙動は変更しない。
-  - Decision: サブディレクトリカードの DOM セレクタ（`#subdir-list .subdir-card`）を維持する。
-  - Rationale: 既存 E2E テスト資産をそのまま再利用し、回帰検知の継続性を保つため。
-  - Impact: テストコードの大幅修正なしで UI マイグレーションを検証可能。
+  - Decision: 旧ホーム資産を残さず削除する。
+  - Rationale: React 移行後の実体と運用対象を単一化し、誤参照・保守コスト増加を防ぐため。
+  - Impact: ホーム画面の実装責務は `frontend` ビルド成果物（`static/home-app`）へ完全移行する。
 - Open Questions:
-  - React 側のリネーム成功メッセージを旧実装（変更前後のディレクトリ名表示）に完全一致させるかは、今後の文言ポリシー次第で調整余地がある。
+  - なし。
 - Verification:
-  - `python app.py tests/resources/image_root` + `curl http://localhost:8000/` + `curl http://localhost:8000/api/subdirectories`（変更前の基本挙動確認: 成功）
-  - `cd frontend && npm run build:bundle`（成功）
+  - `python app.py tests/resources/image_root > /tmp/app.log 2>&1 & echo $! > /tmp/app.pid; sleep 2; curl -sS -o /tmp/home.out -w '%{http_code}' http://localhost:8000/; echo; curl -sS http://localhost:8000/api/subdirectories; kill $(cat /tmp/app.pid)`（成功: `/` が 200、`/api/subdirectories` が正常応答）
   - `pip install -r requirements-dev.txt`（成功）
   - `python -m playwright install --with-deps chromium`（成功）
-  - `pytest tests/api/test_api_contract.py -q`（成功: 6 passed）
-  - `pytest tests/e2e -q`（成功: 1 passed）
-  - browser tool で `http://localhost:8000/` のスクリーンショット取得（成功）
+  - `pytest tests/api/test_api_contract.py -q && pytest tests/e2e -q`（成功: 6 passed, 1 passed）
