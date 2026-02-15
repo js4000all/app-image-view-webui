@@ -28,11 +28,11 @@ python app.py /path/to/image-dir --host 0.0.0.0 --port 8000
 ```
 
 ## 画像表示テスト用ディレクトリ
-画像の表示テストを行う場合は、ルートディレクトリに `test/resources/image_root` を指定してください。
+画像の表示テストを行う場合は、ルートディレクトリに `tests/resources/image_root` を指定してください。
 テスト画像の先頭1枚が初期表示される想定です。
 
 ```sh
-python app.py test/resources/image_root
+python app.py tests/resources/image_root
 ```
 
 ## Codex環境でスクリーンショットが `Not Found` になる場合の回避策
@@ -45,7 +45,7 @@ Codex の browser tool（Playwright 実行環境）では、`localhost` の解�
 1. まずシェル側でアプリが正常起動していることを確認する。
 
 ```sh
-python app.py test/resources/image_root
+python app.py tests/resources/image_root
 curl -i http://localhost:8000/
 curl -i http://localhost:8000/api/subdirectories
 ```
@@ -53,4 +53,4 @@ curl -i http://localhost:8000/api/subdirectories
 2. browser tool でスクリーンショットを取る前に、`/api/subdirectories` の HTTP ステータスが 200 か確認する。
 3. browser tool 側で `localhost` が到達不能な場合は、スクリーンショット運用を行わず、
    代替として `curl` の結果（HTTP 200 と JSON 応答）を確認証跡として扱う。
-4. 起動引数のパスを必ず `test/resources/image_root`（`_`）にする（`image-root` は誤り）。
+4. 起動引数のパスを必ず `tests/resources/image_root`（`_`）にする（`image-root` は誤り）。
