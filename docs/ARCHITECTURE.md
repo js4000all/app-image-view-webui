@@ -95,6 +95,16 @@ npm run build:bundle
 
 ### テスト
 
+依存関係を未インストールの状態で `pytest` を実行すると失敗するため、先に開発用依存を導入してください。
+
+```sh
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+```
+
+その後にテストを実行します。
+
 ```sh
 pytest -q
 ```
