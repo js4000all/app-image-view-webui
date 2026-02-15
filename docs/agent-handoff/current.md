@@ -1,22 +1,20 @@
 ## Context Handoff
-- Goal: 閲覧画面（`/viewer`）を Vanilla JS 実装から React + TypeScript 実装へマイグレーションし、既存 UX（初期1枚目表示、キー/ホイール遷移、削除動作）を維持する。
+- Goal: 閲覧画面で `Escape` キーを押したときにホーム画面（`/`）へ戻れるようにし、既存の左右キー移動・削除導線を維持する。
 - Changes:
-  - `frontend/src/features/viewer/*` に viewer 用の page / hook / API を追加し、`frontend/src/viewer.tsx` エントリから描画する構成へ変更。
-  - Vite 設定を home/viewer 分割に変更（`vite.home.config.ts`, `vite.viewer.config.ts`）し、`npm run build:bundle` で `static/home-app` と `static/viewer-app` を生成するよう更新。
-  - FastAPI の `/viewer` 配信先を `static/viewer-app/viewer.html` に変更。
-  - 旧 viewer 静的資産（`static/viewer.html`, `static/viewer.js`）と旧Vite設定（`frontend/vite.config.ts`）を削除。
-  - README / ARCHITECTURE の viewer 実装説明を React 前提へ更新。
+  - `frontend/src/features/viewer/pages/ViewerPage.tsx` のキーボードイベントに `Escape` 分岐を追加し、`window.location.assign('/')` でホームへ遷移するように変更。
+  - `tests/e2e/test_ui_flow.py` に `Escape` キーでホームへ戻る挙動のE2E検証を追加（ホーム復帰後に再度 viewer へ入り、既存の削除フローまで継続検証）。
+  - `npm run build:bundle` を再実行し、`static/viewer-app/assets` の生成物を更新。
 - Decisions:
-  - Decision: ホーム画面と同様に feature-first で viewer 実装を `frontend/src/features/viewer` に分離する。
-  - Rationale: 既存の React 移行済み構成に合わせ、画面ロジック・通信・表示責務を明確化するため。
-  - Impact: 今後の viewer 改修は `static/viewer.js` ではなく React モジュールで拡張できる。
+  - Decision: `Escape` は React Router 導入ではなく `window.location.assign('/')` で遷移させる実装を採用。
+  - Rationale: 現行構成がURL直遷移ベースであり、最小差分で既存のページ遷移モデルを維持できるため。
+  - Impact: 閲覧画面でのキーボード操作にホーム復帰ショートカットが追加される。
 - Open Questions:
-  - browser tool（Playwright container）で Chromium が SIGSEGV になり、スクリーンショット取得に失敗する環境がある。
+  - browser tool（Playwright container）から `#subdir-list .subdir-card` を取得できず、UIスクリーンショット取得は未完了（接続先不一致の可能性）。
 - Verification:
-  - `python3 app.py tests/resources/image_root --host 127.0.0.1 --port 8001 ...; curl ...`（成功: 変更前の `/`・`/viewer` 到達確認）
+  - `pip install -r requirements-dev.txt`（成功）
+  - `python -m playwright install chromium`（成功）
+  - `python -m playwright install --with-deps chromium`（成功、apt mirror 一部 403 警告あり）
   - `cd frontend && npm ci`（成功）
   - `cd frontend && npm run build:bundle`（成功）
-  - `pip install -r requirements-dev.txt`（成功）
-  - `python3 -m playwright install --with-deps chromium`（成功: apt mirror の一部 403 警告あり）
   - `pytest -q`（成功: 7 passed）
-  - `mcp__browser_tools__run_playwright_script`（失敗: Chromium launch が SIGSEGV）
+  - `mcp__browser_tools__run_playwright_script`（失敗: selector timeout でスクリーンショット取得不可）
