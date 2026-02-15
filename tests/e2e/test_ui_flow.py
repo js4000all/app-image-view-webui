@@ -33,4 +33,8 @@ def test_ui_navigation_and_delete_flow(live_server: str) -> None:
         expect(page.locator("#image-index")).to_have_text("1 / 1")
         expect(page.locator("#image-name")).to_have_text("cat1.png")
 
+        page.keyboard.press("Delete")
+        expect(page.locator("#image-index")).to_have_text("0 / 0")
+        expect(page.locator("#empty-message")).to_be_visible()
+
         browser.close()

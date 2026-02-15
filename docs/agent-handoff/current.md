@@ -1,22 +1,20 @@
 ## Context Handoff
-- Goal: 閲覧画面（`/viewer`）を Vanilla JS 実装から React + TypeScript 実装へマイグレーションし、既存 UX（初期1枚目表示、キー/ホイール遷移、削除動作）を維持する。
+- Goal: 閲覧画面で `Delete` キー押下時に、削除ボタン（`#delete-current-image`）クリックと同じ削除処理を実行できるようにする。
 - Changes:
-  - `frontend/src/features/viewer/*` に viewer 用の page / hook / API を追加し、`frontend/src/viewer.tsx` エントリから描画する構成へ変更。
-  - Vite 設定を home/viewer 分割に変更（`vite.home.config.ts`, `vite.viewer.config.ts`）し、`npm run build:bundle` で `static/home-app` と `static/viewer-app` を生成するよう更新。
-  - FastAPI の `/viewer` 配信先を `static/viewer-app/viewer.html` に変更。
-  - 旧 viewer 静的資産（`static/viewer.html`, `static/viewer.js`）と旧Vite設定（`frontend/vite.config.ts`）を削除。
-  - README / ARCHITECTURE の viewer 実装説明を React 前提へ更新。
+  - `frontend/src/features/viewer/pages/ViewerPage.tsx` のキーボードイベント処理に `Delete` キー分岐を追加し、`deleteCurrentImage()` を呼び出すよう変更。
+  - 上記変更に伴い、`keydown` 用 `useEffect` の依存配列へ `deleteCurrentImage` を追加。
+  - `tests/e2e/test_ui_flow.py` に `Delete` キーでの削除動作確認（画像0件時の表示）を追加。
+  - `npm run build:bundle` を実行し、`static/viewer-app/assets/index-CEHitgqA.js` を最新化。
 - Decisions:
-  - Decision: ホーム画面と同様に feature-first で viewer 実装を `frontend/src/features/viewer` に分離する。
-  - Rationale: 既存の React 移行済み構成に合わせ、画面ロジック・通信・表示責務を明確化するため。
-  - Impact: 今後の viewer 改修は `static/viewer.js` ではなく React モジュールで拡張できる。
+  - Decision: 既存の `document.addEventListener('keydown', ...)` に `Delete` を追加してボタンと同一の hook 関数を再利用する実装を採用。
+  - Rationale: UI操作経路を増やしても削除ロジックの重複を避け、既存UXを最小差分で維持できるため。
+  - Impact: キーボード操作でもボタンと同じ削除結果・ステータスメッセージ更新が行われる。
 - Open Questions:
-  - browser tool（Playwright container）で Chromium が SIGSEGV になり、スクリーンショット取得に失敗する環境がある。
+  - `tests/e2e/test_ui_flow.py` は環境の共有ライブラリ不足（`libatk-1.0.so.0`）でブラウザ起動不可。CI/ローカル依存の整備が必要。
+  - browser tool でも Chromium が SIGSEGV で起動できず、今回の変更スクリーンショットは取得不可。
 - Verification:
-  - `python3 app.py tests/resources/image_root --host 127.0.0.1 --port 8001 ...; curl ...`（成功: 変更前の `/`・`/viewer` 到達確認）
-  - `cd frontend && npm ci`（成功）
+  - `python app.py tests/resources/image_root ...; curl http://localhost:8000/; curl http://localhost:8000/api/subdirectories`（成功: 着手前の基本疎通確認）
   - `cd frontend && npm run build:bundle`（成功）
-  - `pip install -r requirements-dev.txt`（成功）
-  - `python3 -m playwright install --with-deps chromium`（成功: apt mirror の一部 403 警告あり）
-  - `pytest -q`（成功: 7 passed）
+  - `pytest tests/api/test_api_contract.py -q`（成功: 6 passed）
+  - `pytest tests/e2e/test_ui_flow.py -q`（失敗: Playwright起動時に `libatk-1.0.so.0` 不足）
   - `mcp__browser_tools__run_playwright_script`（失敗: Chromium launch が SIGSEGV）
