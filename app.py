@@ -257,11 +257,11 @@ class ImageViewHandler(SimpleHTTPRequestHandler):
             return self.send_error(HTTPStatus.NOT_FOUND)
 
         try:
-            payload = self._read_json_body()
+            request_payload = self._read_json_body()
         except ValueError:
             return self.send_error(HTTPStatus.BAD_REQUEST)
 
-        new_name = payload.get("new_name")
+        new_name = request_payload.get("new_name")
         if not isinstance(new_name, str):
             return self.send_error(HTTPStatus.BAD_REQUEST)
 

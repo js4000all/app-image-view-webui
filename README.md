@@ -54,3 +54,24 @@ curl -i http://localhost:8000/api/subdirectories
 3. browser tool 側で `localhost` が到達不能な場合は、スクリーンショット運用を行わず、
    代替として `curl` の結果（HTTP 200 と JSON 応答）を確認証跡として扱う。
 4. 起動引数のパスを必ず `tests/resources/image_root`（`_`）にする（`image-root` は誤り）。
+
+
+## API仕様（ディレクトリ名変更）
+`PUT /api/subdirectories/{directory_id}`
+
+リクエストボディ（JSON）:
+
+```json
+{"new_name": "新しいディレクトリ名"}
+```
+
+レスポンス:
+
+- `200 OK`: 変更成功
+  - 例: `{"directory_id":"...","renamed_from":"old","renamed_to":"new"}`
+- `400 Bad Request`: `new_name` が不正
+  - 不正値の例: 空文字（空白のみ含む）、`.`、`..`、`/` or `\` を含む文字列
+- `404 Not Found`: `directory_id` が存在しない
+- `409 Conflict`: 変更先と同名のディレクトリが既に存在する
+
+UI（`static/home.js`）はこの仕様に合わせ、名前変更時に `400` と `409` を個別メッセージで扱います。

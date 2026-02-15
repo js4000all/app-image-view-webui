@@ -21,11 +21,13 @@ async function putJson(url, body) {
     body: JSON.stringify(body),
   });
 
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
+  if (response.ok) {
+    return response.json();
   }
 
-  return response.json();
+  const error = new Error(`HTTP ${response.status}`);
+  error.status = response.status;
+  throw error;
 }
 
 function setStatus(message) {
@@ -184,7 +186,13 @@ function createSubdirectoryCard(subdirectory) {
       await refreshSubdirectories();
       setStatus(`「${subdirectory.name}」を「${trimmed}」に変更しました。`);
     } catch (error) {
-      setStatus(`ディレクトリ名の変更に失敗しました: ${error.message}`);
+      if (error.status === 400) {
+        setStatus('ディレクトリ名の変更に失敗しました: 名前が不正です。');
+      } else if (error.status === 409) {
+        setStatus('ディレクトリ名の変更に失敗しました: 同名ディレクトリが既に存在します。');
+      } else {
+        setStatus(`ディレクトリ名の変更に失敗しました: ${error.message}`);
+      }
     } finally {
       renameButton.disabled = false;
     }

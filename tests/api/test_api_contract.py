@@ -102,19 +102,17 @@ def test_put_subdirectory_rename_success_and_conflict(api_client_factory, copied
     rename_target = subdirs[0]
     conflict_name = subdirs[1]["name"]
 
-    rename_response = client.put(
-        f"/api/subdirectories/{rename_target['directory_id']}",
-        json={"new_name": "renamed-dir"},
-    )
-    conflict_response = client.put(
-        f"/api/subdirectories/{rename_response.json()['directory_id']}",
-        json={"new_name": conflict_name},
-    )
+    rename_response = client.put(f"/api/subdirectories/{rename_target['directory_id']}", json={"new_name": "renamed-dir"})
 
     assert rename_response.status_code == 200
     renamed_payload = rename_response.json()
     assert renamed_payload["renamed_from"] == rename_target["name"]
     assert renamed_payload["renamed_to"] == "renamed-dir"
+
+    conflict_response = client.put(
+        f"/api/subdirectories/{rename_response.json()['directory_id']}",
+        json={"new_name": conflict_name},
+    )
     assert conflict_response.status_code == 409
 
     refreshed = client.get("/api/subdirectories")
@@ -122,3 +120,35 @@ def test_put_subdirectory_rename_success_and_conflict(api_client_factory, copied
     names = [entry["name"] for entry in refreshed.json()["subdirectories"]]
     assert "renamed-dir" in names
     assert rename_target["name"] not in names
+
+
+def test_put_subdirectory_rename_returns_400_for_invalid_new_name(api_client_factory, copied_image_root):
+    client = api_client_factory(copied_image_root)
+    directory_id = _first_directory_id(client)
+
+    invalid_names = ["", "   ", ".", "..", "with/slash", "with\\backslash"]
+    for invalid_name in invalid_names:
+        response = client.put(
+            f"/api/subdirectories/{directory_id}",
+            json={"new_name": invalid_name},
+        )
+        assert response.status_code == 400
+
+
+def test_put_subdirectory_rename_returns_409_for_existing_name(api_client_factory, copied_image_root):
+    client = api_client_factory(copied_image_root)
+
+    list_response = client.get("/api/subdirectories")
+    assert list_response.status_code == 200
+    subdirs = list_response.json()["subdirectories"]
+    assert len(subdirs) >= 2
+
+    rename_target = subdirs[0]
+    existing_name = subdirs[1]["name"]
+
+    response = client.put(
+        f"/api/subdirectories/{rename_target['directory_id']}",
+        json={"new_name": existing_name},
+    )
+
+    assert response.status_code == 409
