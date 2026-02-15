@@ -1,15 +1,24 @@
 ## Context Handoff
-- Goal: GitHub Actions で生成した `static/react-hello` 成果物を、可能な場合は PR ブランチへ自動コミットする運用へ改善する。
+- Goal: 既存 API 契約テストを維持したまま、UI導線（ホーム→閲覧→キー操作→削除遷移）を検証する E2E テストと CI 分離を追加し、README に手動再現手順を明記する。
 - Changes:
-  - `.github/workflows/ui-build.yml` を更新し、同一リポジトリ内の PR ではビルド後に `static/react-hello` 差分を自動コミット & push するステップを追加。
-  - 外部 fork PR と `push(main)` では従来どおり差分検知 (`git diff --exit-code`) を行う分岐に変更。
-  - `README.md` の CI 説明を更新し、ブランチ自動コミット条件と制約（外部 fork は検知のみ）を明記。
+  - `tests/e2e/conftest.py` を新設し、`tests/resources/image_root` をテンポラリへ複製して FastAPI サーバーを起動・待機する E2E 用 fixture を追加。
+  - `tests/e2e/test_ui_flow.py` を新設し、サブディレクトリ一覧表示、閲覧画面遷移、初期1枚目表示、左右キー切替、削除後の次画像表示を 1 シナリオで検証。
+  - `requirements-dev.txt` に `playwright` を追加し、ローカル/CI で同一テスト実行基盤を利用可能にした。
+  - `.github/workflows/ui-build.yml` を 2 ジョブ構成へ更新し、`frontend-build`（Vite ビルド）と `ui-e2e`（Playwright E2E）を分離。
+  - `README.md` に「ローカル手動確認手順（再現用）」を追加し、起動コマンド、アクセス URL、期待値を明文化。
 - Decisions:
-  - Decision: 自動コミットは「同一リポジトリ PR」のみに限定。
-  - Rationale: `GITHUB_TOKEN` の書き込み権限が有効な安全範囲でのみ push し、fork PR では権限不足による不安定化を避けるため。
-  - Impact: 開発者は通常 PR で成果物同梱の手作業が不要になり、CI の再現性も維持できる。
+  - Decision: E2E は API モックではなく実サーバー（`python app.py`）を subprocess 起動して検証する。
+  - Rationale: UI 導線と API 応答の結合点（初期表示・削除後遷移）を実運用に近い形で回帰検知するため。
+  - Impact: フロント挙動回帰を API 契約テストとは独立に検出できる。
+  - Decision: CI は `frontend-build` と `ui-e2e` を別ジョブ化する。
+  - Rationale: 失敗時に「ビルド起因」か「挙動回帰起因」かを job 名で即判別できるようにするため。
+  - Impact: triage が容易になり、修正対象の切り分け時間を短縮できる。
 - Open Questions:
-  - 将来ブランチ保護ルールで bot push を制限する場合、専用 bot token または別フローが必要。
+  - 将来的に E2E ケースを増やす場合、テストデータ（画像数・並び順）を fixture で明示生成するか現行リソースを継続利用するかを整理する余地がある。
 - Verification:
-  - `cd frontend && npm run check`
-  - `pytest tests/api -q`
+  - `pip install -r requirements-dev.txt`（成功）
+  - `python -m playwright install --with-deps chromium`（成功）
+  - `pytest tests/api/test_api_contract.py -q`（成功: 6 passed）
+  - `pytest tests/e2e -q`（成功: 1 passed）
+  - `cd frontend && npm ci`（成功）
+  - `cd frontend && npm run build:bundle`（成功）
