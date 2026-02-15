@@ -1,24 +1,25 @@
 ## Context Handoff
-- Goal: 既存 API 契約テストを維持したまま、UI導線（ホーム→閲覧→キー操作→削除遷移）を検証する E2E テストと CI 分離を追加し、README に手動再現手順を明記する。
+- Goal: ホーム画面（`/`）を既存 UX を維持したまま React 実装へ移行し、サブディレクトリ一覧・遷移・リネーム・サムネイル表示の導線を非破壊で置き換える。
 - Changes:
-  - `tests/e2e/conftest.py` を新設し、`tests/resources/image_root` をテンポラリへ複製して FastAPI サーバーを起動・待機する E2E 用 fixture を追加。
-  - `tests/e2e/test_ui_flow.py` を新設し、サブディレクトリ一覧表示、閲覧画面遷移、初期1枚目表示、左右キー切替、削除後の次画像表示を 1 シナリオで検証。
-  - `requirements-dev.txt` に `playwright` を追加し、ローカル/CI で同一テスト実行基盤を利用可能にした。
-  - `.github/workflows/ui-build.yml` を 2 ジョブ構成へ更新し、`frontend-build`（Vite ビルド）と `ui-e2e`（Playwright E2E）を分離。
-  - `README.md` に「ローカル手動確認手順（再現用）」を追加し、起動コマンド、アクセス URL、期待値を明文化。
+  - `frontend/src/App.tsx` を全面更新し、ホーム画面の一覧取得・再読み込み・ディレクトリ名変更・サムネイル遅延読み込み（IntersectionObserver）を React で実装。
+  - `frontend/index.html` / `frontend/vite.config.ts` / `frontend/package.json` を更新し、ホーム画面バンドルを `static/home-app/` に出力する構成へ変更。
+  - `app/main.py` の `/` ルートを `static/home-app/index.html` 配信へ切り替え、旧 `react-hello` ルートを削除。
+  - `static/react-hello/` を削除し、`npm run build:bundle` で `static/home-app/` の成果物を生成。
+  - `.github/workflows/ui-build.yml` と `README.md` を更新し、成果物パスと運用手順を `home-app` ベースに同期。
 - Decisions:
-  - Decision: E2E は API モックではなく実サーバー（`python app.py`）を subprocess 起動して検証する。
-  - Rationale: UI 導線と API 応答の結合点（初期表示・削除後遷移）を実運用に近い形で回帰検知するため。
-  - Impact: フロント挙動回帰を API 契約テストとは独立に検出できる。
-  - Decision: CI は `frontend-build` と `ui-e2e` を別ジョブ化する。
-  - Rationale: 失敗時に「ビルド起因」か「挙動回帰起因」かを job 名で即判別できるようにするため。
-  - Impact: triage が容易になり、修正対象の切り分け時間を短縮できる。
+  - Decision: ホーム画面のみを React へ移行し、閲覧画面（`/viewer`）は既存静的 UI を維持する。
+  - Rationale: 要求対象を最小差分で満たしつつ、画像閲覧導線の既存安定性を優先するため。
+  - Impact: ルート画面の実装基盤は React 化されるが、viewer 側の挙動は変更しない。
+  - Decision: サブディレクトリカードの DOM セレクタ（`#subdir-list .subdir-card`）を維持する。
+  - Rationale: 既存 E2E テスト資産をそのまま再利用し、回帰検知の継続性を保つため。
+  - Impact: テストコードの大幅修正なしで UI マイグレーションを検証可能。
 - Open Questions:
-  - 将来的に E2E ケースを増やす場合、テストデータ（画像数・並び順）を fixture で明示生成するか現行リソースを継続利用するかを整理する余地がある。
+  - React 側のリネーム成功メッセージを旧実装（変更前後のディレクトリ名表示）に完全一致させるかは、今後の文言ポリシー次第で調整余地がある。
 - Verification:
+  - `python app.py tests/resources/image_root` + `curl http://localhost:8000/` + `curl http://localhost:8000/api/subdirectories`（変更前の基本挙動確認: 成功）
+  - `cd frontend && npm run build:bundle`（成功）
   - `pip install -r requirements-dev.txt`（成功）
   - `python -m playwright install --with-deps chromium`（成功）
   - `pytest tests/api/test_api_contract.py -q`（成功: 6 passed）
   - `pytest tests/e2e -q`（成功: 1 passed）
-  - `cd frontend && npm ci`（成功）
-  - `cd frontend && npm run build:bundle`（成功）
+  - browser tool で `http://localhost:8000/` のスクリーンショット取得（成功）

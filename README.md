@@ -70,10 +70,10 @@ curl -i http://localhost:8000/api/subdirectories
 4. 起動引数のパスを必ず `tests/resources/image_root`（`_`）にする（`image-root` は誤り）。
 
 
-## UIマイグレーション準備（React + TypeScript + Vite）
+## ホーム画面のReactマイグレーション（React + TypeScript + Vite）
 
-既存の `static/home.html` / `static/viewer.html` は変更せず、
-マイグレーション確認用に `frontend/` 配下へ最小 React アプリ（Hello world）を追加しています。
+ホーム画面（`/`）は `frontend/` でビルドした React アプリを配信します。
+閲覧画面（`/viewer`）は従来どおり `static/viewer.html` を使用します。
 
 - 開発/ビルド:
   ```sh
@@ -81,8 +81,8 @@ curl -i http://localhost:8000/api/subdirectories
   npm ci
   npm run build:bundle
   ```
-- 生成物配置先: `static/react-hello/`
-- 起動後の確認 URL: `http://localhost:8000/react-hello/`
+- 生成物配置先: `static/home-app/`
+- 起動後の確認 URL: `http://localhost:8000/`
 
 ### CI（GitHub Actions）
 
@@ -90,8 +90,8 @@ curl -i http://localhost:8000/api/subdirectories
 
 1. `npm ci`
 2. `npm run build:bundle`
-3. PR（同一リポジトリ内ブランチ）の場合は、`static/react-hello` の差分を Actions がそのブランチへ自動コミット
-4. `push(main)` と外部 fork PR の場合は `git diff --exit-code -- static/react-hello` で更新漏れを検知
+3. PR（同一リポジトリ内ブランチ）の場合は、`static/home-app` の差分を Actions がそのブランチへ自動コミット
+4. `push(main)` と外部 fork PR の場合は `git diff --exit-code -- static/home-app` で更新漏れを検知
 
 これにより、通常の PR では「Actions が作った成果物をそのままブランチへ反映」でき、
 書き込み権限がないケースでも更新漏れを fail として検出できます。
@@ -99,7 +99,7 @@ curl -i http://localhost:8000/api/subdirectories
 ### 生成物同梱ポリシーと代替案
 
 現時点では「`git pull` 後に Python のみで動作確認できる」ことを優先し、
-`static/react-hello/` をリポジトリに同梱しています。
+`static/home-app/` をリポジトリに同梱しています。
 
 将来的に成果物サイズが増える場合は、
 GitHub Releases や package registry へ成果物を公開し、

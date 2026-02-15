@@ -38,20 +38,20 @@ jobs:
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         working-directory: .
         run: |
-          if git diff --quiet -- static/react-hello; then
+          if git diff --quiet -- static/home-app; then
             echo "No artifact changes to commit"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add static/react-hello
+          git add static/home-app
           git commit -m "chore: update bundled react artifact [skip ci]"
           git push origin HEAD:${{ github.head_ref }}
 
       - name: Verify artifact is up-to-date (push/main and external PR)
         if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
         working-directory: .
-        run: git diff --exit-code -- static/react-hello
+        run: git diff --exit-code -- static/home-app
 
   ui-e2e:
     runs-on: ubuntu-latest
