@@ -5,12 +5,11 @@
 ## 技術スタック
 
 - **Backend**: Python, FastAPI, Uvicorn
-- **Frontend (Home画面)**: React + TypeScript + Vite
-- **Frontend (Viewer画面)**: Vanilla JavaScript (`static/viewer.js`)
+- **Frontend (Home/Viewer画面)**: React + TypeScript + Vite
 - **テスト**: pytest（API / E2E）
 - **配信方式**:
   - `/` は `static/home-app/index.html`（Reactビルド成果物）を配信
-  - `/viewer` は `static/viewer.html` を配信
+  - `/viewer` は `static/viewer-app/viewer.html`（Reactビルド成果物）を配信
   - `/api/*` は FastAPI の JSON API
 
 ---
@@ -23,11 +22,13 @@
   - `services/`: ユースケースロジック
   - `repositories/`: ファイルシステムアクセス
   - `models/`: API 入出力スキーマ
-- `frontend/`: React + TypeScript のホーム画面ソース
+- `frontend/`: React + TypeScript の画面ソース
   - `src/features/home/`: ホーム画面の機能単位モジュール
+  - `src/features/viewer/`: 閲覧画面の機能単位モジュール
 - `static/`: 配信される静的ファイル
-  - `home-app/`: React ビルド成果物
-  - `viewer.html`, `viewer.js`, `styles.css`: 画像閲覧UI
+  - `home-app/`: ホーム画面の React ビルド成果物
+  - `viewer-app/`: 閲覧画面の React ビルド成果物
+  - `styles.css`: 共通スタイル
 - `tests/`: API / E2E テスト
 - `docs/`: 運用・設計ドキュメント
 

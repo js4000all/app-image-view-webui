@@ -1,20 +1,22 @@
 ## Context Handoff
-- Goal: ホーム画面実装を `App.tsx` から分割し、React の責務分離に沿ったディレクトリ構成へ再編する。あわせて、AI エージェント向けのアーキテクチャ文書を追加する。
+- Goal: 閲覧画面（`/viewer`）を Vanilla JS 実装から React + TypeScript 実装へマイグレーションし、既存 UX（初期1枚目表示、キー/ホイール遷移、削除動作）を維持する。
 - Changes:
-  - `frontend/src/App.tsx` を薄いルートコンポーネントへ簡素化し、実体を `features/home/pages/HomePage.tsx` へ移動。
-  - ホーム画面の API 呼び出し・型・hooks・カードコンポーネントを分離（`frontend/src/features/home/*`, `frontend/src/api/http.ts`, `frontend/src/types/home.ts`）。
-  - `docs/ARCHITECTURE.md` を新規作成し、技術スタック・責務分離・主要ディレクトリ・運用コマンドを整理。
-  - フロントエンドを再ビルドし、`static/home-app/` の成果物を更新。
+  - `frontend/src/features/viewer/*` に viewer 用の page / hook / API を追加し、`frontend/src/viewer.tsx` エントリから描画する構成へ変更。
+  - Vite 設定を home/viewer 分割に変更（`vite.home.config.ts`, `vite.viewer.config.ts`）し、`npm run build:bundle` で `static/home-app` と `static/viewer-app` を生成するよう更新。
+  - FastAPI の `/viewer` 配信先を `static/viewer-app/viewer.html` に変更。
+  - 旧 viewer 静的資産（`static/viewer.html`, `static/viewer.js`）と旧Vite設定（`frontend/vite.config.ts`）を削除。
+  - README / ARCHITECTURE の viewer 実装説明を React 前提へ更新。
 - Decisions:
-  - Decision: ホーム画面は feature-first（`features/home`）でページ・コンポーネント・hooks・API を分割する。
-  - Rationale: 1ファイル集中を避け、表示・状態管理・通信の変更を独立して行えるようにするため。
-  - Impact: 今後のホーム画面改修は `App.tsx` ではなく `features/home` 配下を中心に実施でき、影響範囲の把握が容易になる。
+  - Decision: ホーム画面と同様に feature-first で viewer 実装を `frontend/src/features/viewer` に分離する。
+  - Rationale: 既存の React 移行済み構成に合わせ、画面ロジック・通信・表示責務を明確化するため。
+  - Impact: 今後の viewer 改修は `static/viewer.js` ではなく React モジュールで拡張できる。
 - Open Questions:
-  - なし。
+  - browser tool（Playwright container）で Chromium が SIGSEGV になり、スクリーンショット取得に失敗する環境がある。
 - Verification:
-  - `npm ci`（成功）
-  - `npm run build:bundle`（成功）
+  - `python3 app.py tests/resources/image_root --host 127.0.0.1 --port 8001 ...; curl ...`（成功: 変更前の `/`・`/viewer` 到達確認）
+  - `cd frontend && npm ci`（成功）
+  - `cd frontend && npm run build:bundle`（成功）
   - `pip install -r requirements-dev.txt`（成功）
-  - `python -m playwright install --with-deps chromium`（成功。apt mirror の一部 403 警告はあるが処理継続しインストール完了）
+  - `python3 -m playwright install --with-deps chromium`（成功: apt mirror の一部 403 警告あり）
   - `pytest -q`（成功: 7 passed）
-  - `python app.py tests/resources/image_root > /tmp/app.log 2>&1 & echo $! > /tmp/app.pid; sleep 2; curl -sS -o /tmp/home.out -w '%{http_code}' http://localhost:8000/; echo; curl -sS http://localhost:8000/api/subdirectories; kill $(cat /tmp/app.pid)`（成功: `/` が 200、`/api/subdirectories` が正常応答）
+  - `mcp__browser_tools__run_playwright_script`（失敗: Chromium launch が SIGSEGV）

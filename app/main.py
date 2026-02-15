@@ -30,7 +30,7 @@ def create_app(settings: AppSettings) -> FastAPI:
 
     @app.get("/viewer")
     def viewer() -> FileResponse:
-        return FileResponse(settings.static_dir / "viewer.html")
+        return FileResponse(settings.static_dir / "viewer-app" / "viewer.html")
 
     app.mount("/", StaticFiles(directory=str(settings.static_dir), html=False), name="static")
     return app
