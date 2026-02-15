@@ -31,6 +31,10 @@ export function ViewerPage() {
       if (event.key === 'ArrowLeft') {
         movePrevious()
       }
+
+      if (event.key === 'Escape') {
+        window.location.assign('/')
+      }
     }
 
     document.addEventListener('keydown', handleKeyDown)
