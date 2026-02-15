@@ -1,24 +1,22 @@
 ## Context Handoff
-- Goal: `tests/api/` に HTTP 契約中心の最小 API テストを整備し、破壊的操作を安全に隔離する。
+- Goal: `app.py` の単一実装を FastAPI ベースのレイヤ構成へ分割し、既存 API 契約を維持したまま `uvicorn` 起動へ移行する。
 - Changes:
-  - `tests/api/test_api_contract.py` を追加し、以下を検証するテストを実装。
-    - `GET /api/subdirectories`（空/非空）
-    - `GET /api/images/{directory_id}`（存在/不存在）
-    - `GET/HEAD /api/image/{file_id}`（200/304/404）
-    - `DELETE /api/image/{file_id}`（削除後に再取得404）
-    - `PUT /api/subdirectories/{directory_id}`（rename成功/競合失敗）
-  - `tests/api/conftest.py` で `tests/resources/image_root` を `tmp_path` へコピーする fixture を追加。
-  - テストサーバ起動を `app.py` のサブプロセス実行に変更し、内部クラス import 依存を排除。
-  - `requirements-dev.txt` を追加し、`pytest` と `httpx` を開発依存として明示。
+  - `app/` パッケージを新設し、`api/` `services/` `repositories/` `models/` に責務を分離。
+  - `app/services/image_service.py` に `ResourceRegistry` を実装し、`file_id` / `directory_id` 解決と Lock を一元化。
+  - `app/api/routes.py` に既存互換 API (`/api/subdirectories`, `/api/images/{directory_id}`, `/api/image/{file_id}` ほか) を実装。
+  - 静的ファイルパスを `AppSettings.static_dir` で設定化し、配信を `StaticFiles` に集約。
+  - `app/main.py` で `uvicorn.run` を使う起動へ変更し、`app.py` は CLI 互換ラッパとして維持。
+  - `requirements.txt` に `fastapi` と `uvicorn` を追加。
 - Decisions:
-  - Decision: APIテストはレスポンス契約（ステータス・JSON構造・ヘッダ）を検証し、ID生成方式など内部実装は検証対象外にする。
-  - Rationale: FastAPI へ移行しても同じテスト資産を流用しやすくするため。
-  - Impact: テストの移植性が上がり、フレームワーク差異による書き換えコストを削減できる。
-  - Decision: 破壊的操作（DELETE/rename）は常にコピー済みの一時ディレクトリで実行する。
-  - Rationale: テストの独立性を保ち、`tests/resources` の原本汚染を防ぐため。
-  - Impact: リラン時の再現性が安定する。
+  - Decision: ID レジストリのロック管理は `ResourceRegistry` のみが担当する。
+  - Rationale: 競合制御の責務を 1 箇所に寄せ、API ハンドラから排他詳細を排除するため。
+  - Impact: 将来の ID 解決仕様変更がサービス層だけで完結する。
+  - Decision: 画像レスポンスの ETag / Last-Modified / 304 判定ロジックは API 層に維持する。
+  - Rationale: HTTP 条件付きリクエストはトランスポート仕様に近く、ドメインロジックと分離しやすいため。
+  - Impact: 既存キャッシュ挙動を保ったまま FastAPI 移行が可能。
 - Open Questions:
-  - rename失敗ケースとして `400` 系（不正名前・空文字・スラッシュ含む）の追加カバレッジを次段で広げるか。
+  - FastAPI のバージョン更新時に `HEAD` の自動処理差分が出ないか、継続的な契約テストで監視が必要。
 - Verification:
   - `python -m pip install -r requirements-dev.txt`
-  - `pytest tests/api -q`（6 passed）
+  - `pytest tests/api -q`
+  - `python app.py tests/resources/image_root --host 127.0.0.1 --port 8001` + `curl` で API 応答確認
