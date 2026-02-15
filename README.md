@@ -103,3 +103,10 @@ curl -i http://localhost:8000/api/subdirectories
 将来的に成果物サイズが増える場合は、
 GitHub Releases や package registry へ成果物を公開し、
 デプロイ工程で取得する方式に切り替えるのが望ましいです。
+
+
+## エージェント引き継ぎ情報の置き場所
+- タスク固有の判断・検証ログ: `docs/agent-handoff/tasks/`
+- 恒久的に再利用する知識（責務・仕様・運用）: 各ディレクトリの `README.md`
+
+`docs/agent-handoff/current.md` は運用サマリ専用で、タスク本文は保持しません。

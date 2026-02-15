@@ -1,20 +1,18 @@
-## Context Handoff
-- Goal: 閲覧画面で `Escape` キーを押したときにホーム画面（`/`）へ戻れるようにし、既存の左右キー移動・削除導線を維持する。
-- Changes:
-  - `frontend/src/features/viewer/pages/ViewerPage.tsx` のキーボードイベントに `Escape` 分岐を追加し、`window.location.assign('/')` でホームへ遷移するように変更。
-  - `tests/e2e/test_ui_flow.py` に `Escape` キーでホームへ戻る挙動のE2E検証を追加（ホーム復帰後に再度 viewer へ入り、既存の削除フローまで継続検証）。
-  - `npm run build:bundle` を再実行し、`static/viewer-app/assets` の生成物を更新。
-- Decisions:
-  - Decision: `Escape` は React Router 導入ではなく `window.location.assign('/')` で遷移させる実装を採用。
-  - Rationale: 現行構成がURL直遷移ベースであり、最小差分で既存のページ遷移モデルを維持できるため。
-  - Impact: 閲覧画面でのキーボード操作にホーム復帰ショートカットが追加される。
-- Open Questions:
-  - browser tool（Playwright container）から `#subdir-list .subdir-card` を取得できず、UIスクリーンショット取得は未完了（接続先不一致の可能性）。
-- Verification:
-  - `pip install -r requirements-dev.txt`（成功）
-  - `python -m playwright install chromium`（成功）
-  - `python -m playwright install --with-deps chromium`（成功、apt mirror 一部 403 警告あり）
-  - `cd frontend && npm ci`（成功）
-  - `cd frontend && npm run build:bundle`（成功）
-  - `pytest -q`（成功: 7 passed）
-  - `mcp__browser_tools__run_playwright_script`（失敗: selector timeout でスクリーンショット取得不可）
+# current.md（運用サマリ）
+
+このファイルは、**最新タスクの本文を集約する場所ではありません**。
+
+- 目的: agent-handoff 運用方針の簡易サマリを示す
+- タスクログ保存先: `docs/agent-handoff/tasks/YYYY-MM-DD-<topic>.md`
+- 恒久情報保存先: 各ディレクトリの `README.md`
+
+## 運用変更（2026-02）
+
+- 旧運用: `current.md` をタスクごとに更新（競合しやすい）
+- 新運用: タスクごとに `tasks/` ファイルを分離し、`current.md` は固定サマリとして扱う
+
+## この運用で解決したいこと
+
+- 並列PRでの `current.md` コンフリクトを最小化する
+- マージ時の手作業編集を減らし、記録の一貫性を高める
+- 本当に再利用される知識を `README.md` に残す
