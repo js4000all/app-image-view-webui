@@ -207,7 +207,7 @@ class ImageViewHandler(SimpleHTTPRequestHandler):
         if path == "/":
             self.path = "/home.html"
         elif path == "/viewer":
-            self.path = "/index.html"
+            self.path = "/viewer.html"
 
         return super().do_GET()
 
