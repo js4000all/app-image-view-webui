@@ -1,22 +1,18 @@
-## Context Handoff
-- Goal: 閲覧画面（`/viewer`）を Vanilla JS 実装から React + TypeScript 実装へマイグレーションし、既存 UX（初期1枚目表示、キー/ホイール遷移、削除動作）を維持する。
-- Changes:
-  - `frontend/src/features/viewer/*` に viewer 用の page / hook / API を追加し、`frontend/src/viewer.tsx` エントリから描画する構成へ変更。
-  - Vite 設定を home/viewer 分割に変更（`vite.home.config.ts`, `vite.viewer.config.ts`）し、`npm run build:bundle` で `static/home-app` と `static/viewer-app` を生成するよう更新。
-  - FastAPI の `/viewer` 配信先を `static/viewer-app/viewer.html` に変更。
-  - 旧 viewer 静的資産（`static/viewer.html`, `static/viewer.js`）と旧Vite設定（`frontend/vite.config.ts`）を削除。
-  - README / ARCHITECTURE の viewer 実装説明を React 前提へ更新。
-- Decisions:
-  - Decision: ホーム画面と同様に feature-first で viewer 実装を `frontend/src/features/viewer` に分離する。
-  - Rationale: 既存の React 移行済み構成に合わせ、画面ロジック・通信・表示責務を明確化するため。
-  - Impact: 今後の viewer 改修は `static/viewer.js` ではなく React モジュールで拡張できる。
-- Open Questions:
-  - browser tool（Playwright container）で Chromium が SIGSEGV になり、スクリーンショット取得に失敗する環境がある。
-- Verification:
-  - `python3 app.py tests/resources/image_root --host 127.0.0.1 --port 8001 ...; curl ...`（成功: 変更前の `/`・`/viewer` 到達確認）
-  - `cd frontend && npm ci`（成功）
-  - `cd frontend && npm run build:bundle`（成功）
-  - `pip install -r requirements-dev.txt`（成功）
-  - `python3 -m playwright install --with-deps chromium`（成功: apt mirror の一部 403 警告あり）
-  - `pytest -q`（成功: 7 passed）
-  - `mcp__browser_tools__run_playwright_script`（失敗: Chromium launch が SIGSEGV）
+# current.md（運用サマリ）
+
+このファイルは、**最新タスクの本文を集約する場所ではありません**。
+
+- 目的: agent-handoff 運用方針の簡易サマリを示す
+- タスクログ保存先: `docs/agent-handoff/tasks/YYYY-MM-DD-<topic>.md`
+- 恒久情報保存先: 各ディレクトリの `README.md`
+
+## 運用変更（2026-02）
+
+- 旧運用: `current.md` をタスクごとに更新（競合しやすい）
+- 新運用: タスクごとに `tasks/` ファイルを分離し、`current.md` は固定サマリとして扱う
+
+## この運用で解決したいこと
+
+- 並列PRでの `current.md` コンフリクトを最小化する
+- マージ時の手作業編集を減らし、記録の一貫性を高める
+- 本当に再利用される知識を `README.md` に残す

@@ -1,0 +1,17 @@
+## Context Handoff
+- Goal:
+  - `current.md` 単一上書きで発生する並列PRコンフリクトを避け、再利用価値の高い情報だけを残す運用に見直す。
+- Changes:
+  - `AGENTS.md` の引き継ぎルールを改訂し、`current.md` 集約方式を廃止。
+  - `docs/agent-handoff/README.md` をタスク分離運用（`tasks/`）前提へ更新。
+  - `docs/agent-handoff/current.md` を運用サマリ専用の説明ファイルに変更。
+  - `docs/agent-handoff/tasks/README.md` を新規作成し、命名規則を明示。
+  - ルート `README.md` に、引き継ぎ情報の保存先（タスクログ vs 恒久情報）を追記。
+- Decisions:
+  - Decision: タスク固有ログは `docs/agent-handoff/tasks/*.md` へ分離し、恒久情報は各ディレクトリ `README.md` に集約する。
+  - Rationale: 単一ファイル上書きによる競合と、情報の短命化を同時に解消するため。
+  - Impact: 並列作業時のマージコストが下がり、次担当者が必要情報へ到達しやすくなる。
+- Open Questions:
+  - 既存の過去 `current.md` 履歴を `archive/` へ移管する運用をどのタイミングで実施するか。
+- Verification:
+  - `git diff -- AGENTS.md docs/agent-handoff/README.md docs/agent-handoff/current.md docs/agent-handoff/tasks/README.md README.md docs/agent-handoff/tasks/2026-02-15-agent-handoff-policy.md` で変更内容を確認。
