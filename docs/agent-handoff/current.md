@@ -1,24 +1,17 @@
 ## Context Handoff
-- Goal: `tests/api/` に HTTP 契約中心の最小 API テストを整備し、破壊的操作を安全に隔離する。
+- Goal: 画像ダウンロード遅延の主因と判断した `StreamingResponse` 配信経路を改善し、既存 API 契約を維持したまま転送効率を回復する。
 - Changes:
-  - `tests/api/test_api_contract.py` を追加し、以下を検証するテストを実装。
-    - `GET /api/subdirectories`（空/非空）
-    - `GET /api/images/{directory_id}`（存在/不存在）
-    - `GET/HEAD /api/image/{file_id}`（200/304/404）
-    - `DELETE /api/image/{file_id}`（削除後に再取得404）
-    - `PUT /api/subdirectories/{directory_id}`（rename成功/競合失敗）
-  - `tests/api/conftest.py` で `tests/resources/image_root` を `tmp_path` へコピーする fixture を追加。
-  - テストサーバ起動を `app.py` のサブプロセス実行に変更し、内部クラス import 依存を排除。
-  - `requirements-dev.txt` を追加し、`pytest` と `httpx` を開発依存として明示。
+  - `app/api/routes.py` の `GET /api/image/{file_id}` 本文レスポンスを `StreamingResponse(file_obj)` から `FileResponse(path=...)` へ変更。
+  - `ETag` / `Last-Modified` / `Cache-Control` / `Content-Length` ヘッダと 304 判定ロジックは維持。
+  - `HEAD /api/image/{file_id}` は従来どおりヘッダのみレスポンスを維持。
 - Decisions:
-  - Decision: APIテストはレスポンス契約（ステータス・JSON構造・ヘッダ）を検証し、ID生成方式など内部実装は検証対象外にする。
-  - Rationale: FastAPI へ移行しても同じテスト資産を流用しやすくするため。
-  - Impact: テストの移植性が上がり、フレームワーク差異による書き換えコストを削減できる。
-  - Decision: 破壊的操作（DELETE/rename）は常にコピー済みの一時ディレクトリで実行する。
-  - Rationale: テストの独立性を保ち、`tests/resources` の原本汚染を防ぐため。
-  - Impact: リラン時の再現性が安定する。
+  - Decision: 画像本文配信は FastAPI の `FileResponse` に寄せる。
+  - Rationale: バイナリ画像を file object の逐次ストリームで返すより、ファイル配信向け実装を使う方がスループット低下リスクを抑えられるため。
+  - Impact: API 仕様互換を保ったまま、画像ダウンロード速度の改善が期待できる。
 - Open Questions:
-  - rename失敗ケースとして `400` 系（不正名前・空文字・スラッシュ含む）の追加カバレッジを次段で広げるか。
+  - 実運用データサイズでの速度改善幅を、同一環境で `curl` 計測し定量確認する必要がある。
 - Verification:
-  - `python -m pip install -r requirements-dev.txt`
-  - `pytest tests/api -q`（6 passed）
+  - `pytest tests/api -q`
+  - `python app.py tests/resources/image_root --host 127.0.0.1 --port 8001`
+  - `curl -sS -o /dev/null -w '%{http_code} %{speed_download} %{time_total}
+' http://127.0.0.1:8001/api/image/<file_id>`

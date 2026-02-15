@@ -20,12 +20,14 @@ pip install -r requirements.txt
 python app.py /path/to/image-dir
 ```
 
+内部では `uvicorn` で FastAPI アプリを起動します。
 起動後、ブラウザで `http://localhost:8000` にアクセスしてください。
 
 オプション:
 ```sh
-python app.py /path/to/image-dir --host 0.0.0.0 --port 8000
+python app.py /path/to/image-dir --host 0.0.0.0 --port 8000 --static-dir ./static
 ```
+
 
 ## 画像表示テスト用ディレクトリ
 画像の表示テストを行う場合は、ルートディレクトリに `tests/resources/image_root` を指定してください。
