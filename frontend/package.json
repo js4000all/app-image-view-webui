@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "build:bundle": "vite build && rm -rf ../static/react-hello && mkdir -p ../static/react-hello && cp -R dist/* ../static/react-hello/",
+    "build:bundle": "vite build && rm -rf ../static/home-app && mkdir -p ../static/home-app && cp -R dist/* ../static/home-app/",
     "check": "npm run build:bundle"
   },
   "dependencies": {

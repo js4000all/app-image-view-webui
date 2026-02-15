@@ -1,24 +1,17 @@
 ## Context Handoff
-- Goal: 既存 API 契約テストを維持したまま、UI導線（ホーム→閲覧→キー操作→削除遷移）を検証する E2E テストと CI 分離を追加し、README に手動再現手順を明記する。
+- Goal: React マイグレーション後のホーム画面を正式採用し、旧ホーム実装ファイル（`static/home.html`, `static/home.js`）を削除してルート配信の実体を一本化する。
 - Changes:
-  - `tests/e2e/conftest.py` を新設し、`tests/resources/image_root` をテンポラリへ複製して FastAPI サーバーを起動・待機する E2E 用 fixture を追加。
-  - `tests/e2e/test_ui_flow.py` を新設し、サブディレクトリ一覧表示、閲覧画面遷移、初期1枚目表示、左右キー切替、削除後の次画像表示を 1 シナリオで検証。
-  - `requirements-dev.txt` に `playwright` を追加し、ローカル/CI で同一テスト実行基盤を利用可能にした。
-  - `.github/workflows/ui-build.yml` を 2 ジョブ構成へ更新し、`frontend-build`（Vite ビルド）と `ui-e2e`（Playwright E2E）を分離。
-  - `README.md` に「ローカル手動確認手順（再現用）」を追加し、起動コマンド、アクセス URL、期待値を明文化。
+  - `static/home.html` を削除。
+  - `static/home.js` を削除。
+  - ルート配信先（`app/main.py` の `/`）が `static/home-app/index.html` であることを確認（追加修正不要）。
 - Decisions:
-  - Decision: E2E は API モックではなく実サーバー（`python app.py`）を subprocess 起動して検証する。
-  - Rationale: UI 導線と API 応答の結合点（初期表示・削除後遷移）を実運用に近い形で回帰検知するため。
-  - Impact: フロント挙動回帰を API 契約テストとは独立に検出できる。
-  - Decision: CI は `frontend-build` と `ui-e2e` を別ジョブ化する。
-  - Rationale: 失敗時に「ビルド起因」か「挙動回帰起因」かを job 名で即判別できるようにするため。
-  - Impact: triage が容易になり、修正対象の切り分け時間を短縮できる。
+  - Decision: 旧ホーム資産を残さず削除する。
+  - Rationale: React 移行後の実体と運用対象を単一化し、誤参照・保守コスト増加を防ぐため。
+  - Impact: ホーム画面の実装責務は `frontend` ビルド成果物（`static/home-app`）へ完全移行する。
 - Open Questions:
-  - 将来的に E2E ケースを増やす場合、テストデータ（画像数・並び順）を fixture で明示生成するか現行リソースを継続利用するかを整理する余地がある。
+  - なし。
 - Verification:
+  - `python app.py tests/resources/image_root > /tmp/app.log 2>&1 & echo $! > /tmp/app.pid; sleep 2; curl -sS -o /tmp/home.out -w '%{http_code}' http://localhost:8000/; echo; curl -sS http://localhost:8000/api/subdirectories; kill $(cat /tmp/app.pid)`（成功: `/` が 200、`/api/subdirectories` が正常応答）
   - `pip install -r requirements-dev.txt`（成功）
   - `python -m playwright install --with-deps chromium`（成功）
-  - `pytest tests/api/test_api_contract.py -q`（成功: 6 passed）
-  - `pytest tests/e2e -q`（成功: 1 passed）
-  - `cd frontend && npm ci`（成功）
-  - `cd frontend && npm run build:bundle`（成功）
+  - `pytest tests/api/test_api_contract.py -q && pytest tests/e2e -q`（成功: 6 passed, 1 passed）
