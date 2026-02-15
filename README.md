@@ -78,9 +78,11 @@ curl -i http://localhost:8000/api/subdirectories
 
 1. `npm ci`
 2. `npm run build:bundle`
-3. `git diff --exit-code -- static/react-hello`
+3. PR（同一リポジトリ内ブランチ）の場合は、`static/react-hello` の差分を Actions がそのブランチへ自動コミット
+4. `push(main)` と外部 fork PR の場合は `git diff --exit-code -- static/react-hello` で更新漏れを検知
 
-これにより、ビルド済み成果物のコミット漏れを検知できます。
+これにより、通常の PR では「Actions が作った成果物をそのままブランチへ反映」でき、
+書き込み権限がないケースでも更新漏れを fail として検出できます。
 
 ### 生成物同梱ポリシーと代替案
 

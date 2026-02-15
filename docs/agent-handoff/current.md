@@ -1,21 +1,15 @@
 ## Context Handoff
-- Goal: UI移行の足場として React+TypeScript+Vite を導入し、既存画面を維持したまま CI でビルド確認できる最小構成（Hello world）を追加する。
+- Goal: GitHub Actions で生成した `static/react-hello` 成果物を、可能な場合は PR ブランチへ自動コミットする運用へ改善する。
 - Changes:
-  - `frontend/` を新規作成し、React+TypeScript+Vite の最小アプリ（Hello world）を追加。
-  - `frontend/package.json` に `build:bundle` スクリプトを追加し、ビルド成果物を `static/react-hello/` に同梱する運用にした。
-  - `app/main.py` に `GET /react-hello` / `GET /react-hello/` を追加し、`static/react-hello/index.html` を返すようにした（既存 `/` と `/viewer` は非変更）。
-  - `.github/workflows/ui-build.yml` を追加し、GitHub Actions で `npm ci`→`npm run build:bundle`→`static/react-hello` の差分チェックを実行する CI を導入。
-  - `README.md` に UI マイグレーション準備手順、CI内容、生成物同梱方針と代替案を追記。
-  - `.gitignore` に `frontend/node_modules/` を追加。
+  - `.github/workflows/ui-build.yml` を更新し、同一リポジトリ内の PR ではビルド後に `static/react-hello` 差分を自動コミット & push するステップを追加。
+  - 外部 fork PR と `push(main)` では従来どおり差分検知 (`git diff --exit-code`) を行う分岐に変更。
+  - `README.md` の CI 説明を更新し、ブランチ自動コミット条件と制約（外部 fork は検知のみ）を明記。
 - Decisions:
-  - Decision: 生成物は当面リポジトリ同梱方式を採用。
-  - Rationale: `git pull` のみで Python 実行環境から `/react-hello/` を確認でき、要望に沿って Node.js 非依存のデプロイ形態を維持できるため。
-  - Impact: リポジトリサイズは増えるが、CI の差分検知で同梱生成物の更新漏れを防止できる。
+  - Decision: 自動コミットは「同一リポジトリ PR」のみに限定。
+  - Rationale: `GITHUB_TOKEN` の書き込み権限が有効な安全範囲でのみ push し、fork PR では権限不足による不安定化を避けるため。
+  - Impact: 開発者は通常 PR で成果物同梱の手作業が不要になり、CI の再現性も維持できる。
 - Open Questions:
-  - 画面規模が拡大し成果物が大型化した場合、Release artifact / package registry 配布へ移行するか再評価が必要。
+  - 将来ブランチ保護ルールで bot push を制限する場合、専用 bot token または別フローが必要。
 - Verification:
   - `cd frontend && npm run check`
-  - `pip install -r requirements.txt`
-  - `pip install -r requirements-dev.txt`
   - `pytest tests/api -q`
-  - `python app.py tests/resources/image_root --host 0.0.0.0 --port 8000` + `curl -s http://127.0.0.1:8000/react-hello/ | head -n 8`

@@ -5,6 +5,9 @@ on:
   push:
     branches: ["main"]
 
+permissions:
+  contents: write
+
 jobs:
   build-react-hello:
     runs-on: ubuntu-latest
@@ -14,6 +17,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -28,5 +34,21 @@ jobs:
       - name: Build and bundle static artifact
         run: npm run build:bundle
 
-      - name: Verify committed artifact is up-to-date
-        run: git diff --exit-code -- ../static/react-hello
+      - name: Commit bundled artifact to PR branch
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        working-directory: .
+        run: |
+          if git diff --quiet -- static/react-hello; then
+            echo "No artifact changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add static/react-hello
+          git commit -m "chore: update bundled react artifact [skip ci]"
+          git push origin HEAD:${{ github.head_ref }}
+
+      - name: Verify artifact is up-to-date (push/main and external PR)
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+        working-directory: .
+        run: git diff --exit-code -- static/react-hello
