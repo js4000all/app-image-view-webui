@@ -95,6 +95,9 @@ npm run build:bundle
 
 ### テスト
 
+依存関係を未インストールの状態で `pytest` を実行すると失敗するため、先に開発用依存を導入してください。
+
 ```sh
+pip install -r requirements-dev.txt
 pytest -q
 ```
