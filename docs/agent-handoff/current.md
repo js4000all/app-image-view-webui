@@ -1,17 +1,20 @@
 ## Context Handoff
-- Goal: React マイグレーション後のホーム画面を正式採用し、旧ホーム実装ファイル（`static/home.html`, `static/home.js`）を削除してルート配信の実体を一本化する。
+- Goal: ホーム画面実装を `App.tsx` から分割し、React の責務分離に沿ったディレクトリ構成へ再編する。あわせて、AI エージェント向けのアーキテクチャ文書を追加する。
 - Changes:
-  - `static/home.html` を削除。
-  - `static/home.js` を削除。
-  - ルート配信先（`app/main.py` の `/`）が `static/home-app/index.html` であることを確認（追加修正不要）。
+  - `frontend/src/App.tsx` を薄いルートコンポーネントへ簡素化し、実体を `features/home/pages/HomePage.tsx` へ移動。
+  - ホーム画面の API 呼び出し・型・hooks・カードコンポーネントを分離（`frontend/src/features/home/*`, `frontend/src/api/http.ts`, `frontend/src/types/home.ts`）。
+  - `docs/ARCHITECTURE.md` を新規作成し、技術スタック・責務分離・主要ディレクトリ・運用コマンドを整理。
+  - フロントエンドを再ビルドし、`static/home-app/` の成果物を更新。
 - Decisions:
-  - Decision: 旧ホーム資産を残さず削除する。
-  - Rationale: React 移行後の実体と運用対象を単一化し、誤参照・保守コスト増加を防ぐため。
-  - Impact: ホーム画面の実装責務は `frontend` ビルド成果物（`static/home-app`）へ完全移行する。
+  - Decision: ホーム画面は feature-first（`features/home`）でページ・コンポーネント・hooks・API を分割する。
+  - Rationale: 1ファイル集中を避け、表示・状態管理・通信の変更を独立して行えるようにするため。
+  - Impact: 今後のホーム画面改修は `App.tsx` ではなく `features/home` 配下を中心に実施でき、影響範囲の把握が容易になる。
 - Open Questions:
   - なし。
 - Verification:
-  - `python app.py tests/resources/image_root > /tmp/app.log 2>&1 & echo $! > /tmp/app.pid; sleep 2; curl -sS -o /tmp/home.out -w '%{http_code}' http://localhost:8000/; echo; curl -sS http://localhost:8000/api/subdirectories; kill $(cat /tmp/app.pid)`（成功: `/` が 200、`/api/subdirectories` が正常応答）
+  - `npm ci`（成功）
+  - `npm run build:bundle`（成功）
   - `pip install -r requirements-dev.txt`（成功）
-  - `python -m playwright install --with-deps chromium`（成功）
-  - `pytest tests/api/test_api_contract.py -q && pytest tests/e2e -q`（成功: 6 passed, 1 passed）
+  - `python -m playwright install --with-deps chromium`（成功。apt mirror の一部 403 警告はあるが処理継続しインストール完了）
+  - `pytest -q`（成功: 7 passed）
+  - `python app.py tests/resources/image_root > /tmp/app.log 2>&1 & echo $! > /tmp/app.pid; sleep 2; curl -sS -o /tmp/home.out -w '%{http_code}' http://localhost:8000/; echo; curl -sS http://localhost:8000/api/subdirectories; kill $(cat /tmp/app.pid)`（成功: `/` が 200、`/api/subdirectories` が正常応答）
