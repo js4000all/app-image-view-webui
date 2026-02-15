@@ -32,6 +32,11 @@ def create_app(settings: AppSettings) -> FastAPI:
     def viewer() -> FileResponse:
         return FileResponse(settings.static_dir / "viewer.html")
 
+    @app.get("/react-hello")
+    @app.get("/react-hello/")
+    def react_hello() -> FileResponse:
+        return FileResponse(settings.static_dir / "react-hello" / "index.html")
+
     app.mount("/", StaticFiles(directory=str(settings.static_dir), html=False), name="static")
     return app
 

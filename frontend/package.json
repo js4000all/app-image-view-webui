@@ -1,0 +1,21 @@
+{
+  "name": "app-image-view-webui-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "build:bundle": "vite build && rm -rf ../static/react-hello && mkdir -p ../static/react-hello && cp -R dist/* ../static/react-hello/",
+    "check": "npm run build:bundle"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}

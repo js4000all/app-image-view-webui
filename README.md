@@ -56,3 +56,37 @@ curl -i http://localhost:8000/api/subdirectories
 3. browser tool 側で `localhost` が到達不能な場合は、スクリーンショット運用を行わず、
    代替として `curl` の結果（HTTP 200 と JSON 応答）を確認証跡として扱う。
 4. 起動引数のパスを必ず `tests/resources/image_root`（`_`）にする（`image-root` は誤り）。
+
+
+## UIマイグレーション準備（React + TypeScript + Vite）
+
+既存の `static/home.html` / `static/viewer.html` は変更せず、
+マイグレーション確認用に `frontend/` 配下へ最小 React アプリ（Hello world）を追加しています。
+
+- 開発/ビルド:
+  ```sh
+  cd frontend
+  npm ci
+  npm run build:bundle
+  ```
+- 生成物配置先: `static/react-hello/`
+- 起動後の確認 URL: `http://localhost:8000/react-hello/`
+
+### CI（GitHub Actions）
+
+`.github/workflows/ui-build.yml` で以下を実行します。
+
+1. `npm ci`
+2. `npm run build:bundle`
+3. `git diff --exit-code -- static/react-hello`
+
+これにより、ビルド済み成果物のコミット漏れを検知できます。
+
+### 生成物同梱ポリシーと代替案
+
+現時点では「`git pull` 後に Python のみで動作確認できる」ことを優先し、
+`static/react-hello/` をリポジトリに同梱しています。
+
+将来的に成果物サイズが増える場合は、
+GitHub Releases や package registry へ成果物を公開し、
+デプロイ工程で取得する方式に切り替えるのが望ましいです。
