@@ -5,7 +5,7 @@ from email.utils import formatdate, parsedate_to_datetime
 from http import HTTPStatus
 
 from fastapi import APIRouter, HTTPException, Request, Response
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse
 
 from app.models.schemas import (
     DeleteImageResponse,
@@ -79,12 +79,7 @@ def create_api_router(service: ImageService) -> APIRouter:
         if not include_body:
             return Response(status_code=HTTPStatus.OK, headers=headers, media_type=content_type)
 
-        try:
-            file_obj = file_path.open("rb")
-        except OSError as exc:
-            raise HTTPException(status_code=HTTPStatus.INTERNAL_SERVER_ERROR) from exc
-
-        return StreamingResponse(file_obj, media_type=content_type, headers=headers)
+        return FileResponse(path=file_path, media_type=content_type, headers=headers)
 
     @router.get("/image/{file_id}")
     def get_image(file_id: str, request: Request) -> Response:
