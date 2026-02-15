@@ -63,3 +63,22 @@ def live_server(free_tcp_port_factory, copied_image_root: Path):
     if process.poll() is None:
         process.terminate()
         process.wait(timeout=3)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def ensure_playwright_runtime_available() -> None:
+    sync_api = pytest.importorskip("playwright.sync_api")
+
+    with sync_api.sync_playwright() as playwright:
+        try:
+            browser = playwright.chromium.launch()
+        except Exception as error:  # noqa: BLE001
+            message = str(error)
+            if "error while loading shared libraries" in message:
+                pytest.skip(
+                    "Playwright Chromium のシステム依存が不足しています。"
+                    " `python -m playwright install --with-deps chromium` を実行してください。"
+                )
+            raise
+        else:
+            browser.close()
