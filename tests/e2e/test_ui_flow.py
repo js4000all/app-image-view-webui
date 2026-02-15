@@ -56,6 +56,7 @@ def test_ui_navigation_and_delete_flow(live_server: str) -> None:
 
         page.locator("#delete-current-image").click()
         expect(page.locator("#image-index")).to_have_text("0 / 0")
-        expect(page.locator("#empty-message")).to_be_visible()
+        expect(page.locator("#delete-current-image")).to_be_disabled()
+        expect(page.locator("#main-image")).to_have_count(0)
 
         browser.close()

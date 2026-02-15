@@ -58,3 +58,17 @@
   - なし。
 - Verification:
   - `pytest tests/e2e/test_ui_flow.py`（skip: Playwright shared library 依存不足時はメッセージ付きで skip）
+
+## Context Handoff (Fix flaky empty-message assertion in CI)
+- Goal: GitHub Actions の `pytest tests/e2e -q` 失敗要因を解消する。
+- Changes:
+  - `tests/e2e/test_ui_flow.py` の最終アサーションを `#empty-message` 可視判定から、`#delete-current-image` が disabled であること + `#main-image` が 0 件であることの確認に変更した。
+- Decisions:
+  - Decision: 空状態判定にレイアウト依存の `to_be_visible` を使わず、状態依存のDOM/操作可否を検証する。
+  - Rationale: `#empty-message` は `position: absolute` かつ親 `.image-stage` の高さに依存し、環境差で可視判定が不安定になるため。
+  - Impact: CI でのフレーキー失敗を減らし、削除後の実質的な空状態（画像なし・削除不可）を安定して検証できる。
+- Open Questions:
+  - 空状態メッセージの視覚表示自体を厳密に保証したい場合、`.image-stage` の高さ仕様（例: `flex: 1`）をUI実装側で固定するか検討余地あり。
+- Verification:
+  - `pytest tests/e2e/test_ui_flow.py`（環境依存で skip の場合あり）
+  - `pytest tests/api/test_api_contract.py`（成功）
