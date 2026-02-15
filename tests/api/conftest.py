@@ -1,19 +1,12 @@
 from __future__ import annotations
 
 import shutil
-import sys
-import threading
+import subprocess
+import time
 from pathlib import Path
 
 import httpx
 import pytest
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from app import ImageViewHandler
-from http.server import ThreadingHTTPServer
 
 
 @pytest.fixture
@@ -32,40 +25,60 @@ def empty_image_root(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def api_client_factory():
+def api_client_factory(free_tcp_port_factory):
     clients: list[httpx.Client] = []
-    servers: list[ThreadingHTTPServer] = []
-    threads: list[threading.Thread] = []
+    processes: list[subprocess.Popen] = []
 
     def _start(base_dir: Path) -> httpx.Client:
-        handler_class = type(
-            "ConfiguredImageViewHandler",
-            (ImageViewHandler,),
-            {
-                "base_dir": base_dir,
-                "_id_to_path": {},
-                "_path_to_id": {},
-                "_resource_lock": threading.Lock(),
-            },
+        port = free_tcp_port_factory()
+        process = subprocess.Popen(
+            [
+                "python",
+                "app.py",
+                str(base_dir),
+                "--host",
+                "127.0.0.1",
+                "--port",
+                str(port),
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
         )
-        server = ThreadingHTTPServer(("127.0.0.1", 0), handler_class)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
 
-        host, port = server.server_address
-        client = httpx.Client(base_url=f"http://{host}:{port}")
+        base_url = f"http://127.0.0.1:{port}"
+        client = httpx.Client(base_url=base_url, timeout=5.0)
+
+        deadline = time.time() + 5
+        last_error: Exception | None = None
+        while time.time() < deadline:
+            if process.poll() is not None:
+                stdout, stderr = process.communicate(timeout=1)
+                raise RuntimeError(
+                    f"server exited unexpectedly with code {process.returncode}\n"
+                    f"stdout:\n{stdout}\nstderr:\n{stderr}"
+                )
+            try:
+                response = client.get("/api/subdirectories")
+                if response.status_code == 200:
+                    break
+            except httpx.HTTPError as exc:
+                last_error = exc
+            time.sleep(0.1)
+        else:
+            process.terminate()
+            process.wait(timeout=3)
+            raise RuntimeError(f"server did not become ready in time: {last_error}")
 
         clients.append(client)
-        servers.append(server)
-        threads.append(thread)
+        processes.append(process)
         return client
 
     yield _start
 
     for client in clients:
         client.close()
-    for server in servers:
-        server.shutdown()
-        server.server_close()
-    for thread in threads:
-        thread.join(timeout=2)
+    for process in processes:
+        if process.poll() is None:
+            process.terminate()
+            process.wait(timeout=3)
