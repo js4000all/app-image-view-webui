@@ -2,7 +2,13 @@ import { useEffect } from 'react'
 
 import { useViewer } from '../hooks/useViewer'
 
-export function ViewerPage() {
+type ViewerPageProps = {
+  requestedDirectoryId: string
+  onNavigateHome: () => void
+}
+
+export function ViewerPage(props: ViewerPageProps) {
+  const { requestedDirectoryId, onNavigateHome } = props
   const {
     currentDirectory,
     currentImage,
@@ -17,10 +23,8 @@ export function ViewerPage() {
   } = useViewer()
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const requestedDirectoryId = params.get('directory_id') ?? ''
     void initialize(requestedDirectoryId)
-  }, [initialize])
+  }, [initialize, requestedDirectoryId])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -33,7 +37,7 @@ export function ViewerPage() {
       }
 
       if (event.key === 'Escape') {
-        window.location.assign('/')
+        onNavigateHome()
       }
 
       if (event.key === 'Delete') {
@@ -45,7 +49,7 @@ export function ViewerPage() {
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [deleteCurrentImage, moveNext, movePrevious])
+  }, [deleteCurrentImage, moveNext, movePrevious, onNavigateHome])
 
   useEffect(() => {
     const handleWheel = (event: WheelEvent) => {
@@ -81,7 +85,14 @@ export function ViewerPage() {
         </p>
       </div>
       <div id="status-bar" className="status-bar">
-        <a className="home-link" href="/">
+        <a
+          className="home-link"
+          href="/"
+          onClick={(event) => {
+            event.preventDefault()
+            onNavigateHome()
+          }}
+        >
           ← ディレクトリ一覧へ
         </a>
         <span id="selected-subdir" className="selected-subdir">

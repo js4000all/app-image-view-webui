@@ -1,0 +1,24 @@
+## Context Handoff
+- Goal:
+  - `/` と `/viewer` を単一のReact SPAとして動作させ、画面遷移時のフルリロードをなくす。
+- Changes:
+  - `frontend/src/App.tsx` に最小ルーター（History API + popstate）を追加し、`HomePage` と `ViewerPage` をURLに応じて切替。
+  - `frontend/src/features/home/pages/HomePage.tsx` / `frontend/src/features/home/components/SubdirectoryCard.tsx` で viewer 遷移をコールバック化し、クリック時にSPA遷移するよう変更。
+  - `frontend/src/features/viewer/pages/ViewerPage.tsx` を props 駆動に変更し、Escapeキーとリンク遷移をSPA化。
+  - `app/main.py` の `/viewer` 配信先を `static/home-app/index.html` へ変更。
+  - Vite構成を単一化（`frontend/vite.config.ts` 新設、`vite.home.config.ts`/`vite.viewer.config.ts`/`src/viewer.tsx`/`viewer.html` 削除）。
+  - `README.md` と `docs/ARCHITECTURE.md` の配信・成果物説明をSPA前提に更新。
+  - `npm run build:bundle` を実行し、`static/home-app/*` を更新。旧 `static/viewer-app/*` は削除。
+- Decisions:
+  - Decision: 追加依存（react-router）を導入せず、History APIでルーティングを実装。
+  - Rationale: 既存UX維持を優先しつつ差分を最小化し、依存追加を避けるため。
+  - Impact: フロントエンドのエントリーポイント/ビルド構成、および `/viewer` のHTML配信先。
+- Open Questions:
+  - browser tool からの画面確認は `Not Found` になる場合があり、実UIスクリーンショットの安定取得は環境依存。
+- Verification:
+  - `cd frontend && npm ci`（成功）
+  - `cd frontend && npm run build:bundle`（成功）
+  - `pip install -r requirements-dev.txt`（成功）
+  - `python -m playwright install --with-deps chromium`（成功）
+  - `pytest -q`（成功, 7 passed）
+  - browser tool で `http://localhost:8000` / `http://127.0.0.1:8000` を撮影試行（`Not Found` のみ取得）
