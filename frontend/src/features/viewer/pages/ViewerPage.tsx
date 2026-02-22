@@ -13,8 +13,6 @@ export function ViewerPage(props: ViewerPageProps) {
     currentDirectory,
     currentImage,
     imageIndexText,
-    imageCount,
-    currentImageNumber,
     imageNameText,
     status,
     canDelete,
@@ -96,8 +94,7 @@ export function ViewerPage(props: ViewerPageProps) {
           >
             ← ディレクトリ一覧へ
           </a>
-          <p className="overlay-line">画像インデクス: {currentImageNumber}</p>
-          <p className="overlay-line">画像総数: {imageCount}</p>
+          <p className="overlay-line">{imageIndexText}</p>
           <button
             id="delete-current-image"
             type="button"

@@ -82,8 +82,8 @@ body {
   transition: opacity 120ms ease, transform 120ms ease;
 }
 
-.image-stage:hover .overlay-panel-right,
-.image-stage:focus-within .overlay-panel-right {
+.image-stage > #main-image:hover ~ .overlay-panel-right,
+.image-stage > #empty-message:hover ~ .overlay-panel-right {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);

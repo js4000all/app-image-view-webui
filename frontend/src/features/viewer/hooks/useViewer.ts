@@ -177,15 +177,11 @@ export function useViewer() {
   }, [currentImage, state.currentIndex, state.images.length])
 
   const imageNameText = currentImage ? currentImage.name : ''
-  const imageCount = state.images.length
-  const currentImageNumber = currentImage ? state.currentIndex + 1 : 0
 
   return {
     currentDirectory: state.currentDirectory,
     currentImage,
     imageIndexText,
-    imageCount,
-    currentImageNumber,
     imageNameText,
     status: state.status,
     canDelete: Boolean(currentImage),
