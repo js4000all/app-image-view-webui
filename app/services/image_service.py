@@ -7,6 +7,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from app.models.schemas import DirectoryEntry, ImageEntry
+from app.models.types import DirectoryId, DirectoryName, FileId
 from app.repositories.filesystem import FileSystemRepository
 
 
@@ -55,7 +56,7 @@ class ResourceRegistry:
             if resource_id is not None:
                 self._id_to_path.pop(resource_id, None)
 
-    def resolve(self, resource_id: str, *, base_dir: Path, expect_directory: bool) -> Path | None:
+    def resolve(self, resource_id: DirectoryId | FileId, *, base_dir: Path, expect_directory: bool) -> Path | None:
         with self._lock:
             path = self._id_to_path.get(resource_id)
 
@@ -81,7 +82,7 @@ class ImageService:
         subdirectories = self.repository.list_subdirectories(self.base_dir)
         return [DirectoryEntry(directory_id=self.registry.register(path), name=path.name) for path in subdirectories]
 
-    def list_images(self, directory_id: str) -> tuple[Path, list[ImageEntry]]:
+    def list_images(self, directory_id: DirectoryId) -> tuple[Path, list[ImageEntry]]:
         directory = self.registry.resolve(directory_id, base_dir=self.base_dir, expect_directory=True)
         if directory is None:
             raise ResourceNotFoundError
@@ -90,7 +91,7 @@ class ImageService:
         image_entries = [ImageEntry(file_id=self.registry.register(path), name=path.name) for path in images]
         return directory, image_entries
 
-    def resolve_image(self, file_id: str) -> Path:
+    def resolve_image(self, file_id: FileId) -> Path:
         file_path = self.registry.resolve(file_id, base_dir=self.base_dir, expect_directory=False)
         if file_path is None:
             raise ResourceNotFoundError
@@ -98,7 +99,7 @@ class ImageService:
             raise UnsupportedMediaTypeError
         return file_path
 
-    def delete_image(self, file_id: str) -> Path:
+    def delete_image(self, file_id: FileId) -> Path:
         file_path = self.resolve_image(file_id)
         try:
             self.repository.delete_file(file_path)
@@ -107,7 +108,9 @@ class ImageService:
         self.registry.discard(file_path)
         return file_path
 
-    def rename_subdirectory(self, directory_id: str, new_name: str) -> tuple[str, str, str]:
+    def rename_subdirectory(
+        self, directory_id: DirectoryId, new_name: DirectoryName
+    ) -> tuple[DirectoryId, DirectoryName, DirectoryName]:
         current_directory = self.registry.resolve(directory_id, base_dir=self.base_dir, expect_directory=True)
         if current_directory is None:
             raise ResourceNotFoundError

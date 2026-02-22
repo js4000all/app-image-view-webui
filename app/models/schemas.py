@@ -2,15 +2,17 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+from app.models.types import DirectoryId, DirectoryName, FileId, FileName
+
 
 class DirectoryEntry(BaseModel):
-    directory_id: str
-    name: str
+    directory_id: DirectoryId
+    name: DirectoryName
 
 
 class ImageEntry(BaseModel):
-    file_id: str
-    name: str
+    file_id: FileId
+    name: FileName
 
 
 class SubdirectoriesResponse(BaseModel):
@@ -18,21 +20,21 @@ class SubdirectoriesResponse(BaseModel):
 
 
 class ImagesResponse(BaseModel):
-    directory_id: str
-    subdirectory: str
+    directory_id: DirectoryId
+    subdirectory: DirectoryName
     images: list[ImageEntry]
 
 
 class DeleteImageResponse(BaseModel):
-    deleted: str
-    file_id: str
+    deleted: FileName
+    file_id: FileId
 
 
 class RenameDirectoryRequest(BaseModel):
-    new_name: str
+    new_name: DirectoryName
 
 
 class RenameDirectoryResponse(BaseModel):
-    directory_id: str
-    renamed_from: str
-    renamed_to: str
+    directory_id: DirectoryId
+    renamed_from: DirectoryName
+    renamed_to: DirectoryName
