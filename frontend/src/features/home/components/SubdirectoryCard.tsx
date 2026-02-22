@@ -71,17 +71,23 @@ export function SubdirectoryCard(props: SubdirectoryCardProps) {
         >
           <div className="subdir-meta">
             <p className="subdir-name">{subdirectory.name}</p>
+            <button
+              type="button"
+              className="subdir-rename-button"
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                void handleRename()
+              }}
+              disabled={renaming}
+              aria-label={`${subdirectory.name} の名前を変更`}
+              title="名前変更"
+            >
+              ✏️
+            </button>
           </div>
           <div className="subdir-thumbs">{thumbnailContent}</div>
         </a>
-        <button
-          type="button"
-          className="subdir-rename-button"
-          onClick={() => void handleRename()}
-          disabled={renaming}
-        >
-          名前変更
-        </button>
       </div>
     </li>
   )
