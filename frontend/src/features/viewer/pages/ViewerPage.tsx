@@ -94,7 +94,7 @@ export function ViewerPage(props: ViewerPageProps) {
           >
             ← ディレクトリ一覧へ
           </a>
-          <p className="overlay-line">{imageIndexText}</p>
+          <p id="image-index" className="overlay-line">{imageIndexText}</p>
           <button
             id="delete-current-image"
             type="button"

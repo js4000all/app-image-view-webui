@@ -28,3 +28,16 @@
 - Verification:
   - `cd frontend && npm run build:bundle`（成功）
   - `pytest -q tests/e2e/test_ui_flow.py -q`（この環境では playwright 未導入のため実行対象 0）
+
+## Context Handoff (e2e locator fix)
+- Goal: e2e で失敗していた `#image-index` ロケータ未検出を解消する。
+- Changes:
+  - `frontend/src/features/viewer/pages/ViewerPage.tsx` のインデックス表示要素へ `id="image-index"` を付与。
+- Decisions:
+  - Decision: テストを変更せず UI マークアップ互換を戻す。
+  - Rationale: 既存 e2e 契約（`#image-index`）を復元する方が影響が小さく、回帰も抑えやすいため。
+  - Impact: 画面見た目は変わらず、e2e ロケータが安定して解決される。
+- Open Questions:
+  - なし。
+- Verification:
+  - `cd frontend && npm run build:bundle`（成功）
