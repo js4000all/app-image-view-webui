@@ -1,0 +1,58 @@
+## Context Handoff
+- Goal:
+  - 閲覧画面の情報表示を画像上オーバーレイへ変更し、左下は常時表示、右上はホバー時のみ表示にする。
+- Changes:
+  - `frontend/src/features/viewer/pages/ViewerPage.tsx` のレイアウトをステータスバー構成からオーバーレイパネル構成へ変更。
+  - `frontend/src/features/viewer/hooks/useViewer.ts` で現在画像番号と画像総数を個別に参照できる値を返却。
+  - `static/styles.css` にオーバーレイパネル（左下常時表示、右上ホバー表示）のスタイルを追加し、旧ステータスバー前提のスタイルを整理。
+  - `npm run build:bundle` 実行により `static/home-app/` の成果物を更新。
+- Decisions:
+  - Decision: 既存の「ホームへ戻る」導線は削除せず左下パネルへ残した。
+  - Rationale: 操作導線を維持しつつ、要求された情報パネル化を最小差分で満たすため。
+  - Impact: Viewer 画面の DOM 構造と CSS クラス、配信済みフロント成果物。
+- Open Questions:
+  - browser tool からローカル画面要素を取得できず、変更後UIのスクリーンショット採取は未完了。
+- Verification:
+  - `npm ci` : 成功
+  - `npm run build:bundle` : 成功
+  - `python app.py tests/resources/image_root` : 成功（サーバ起動ログ確認）
+  - `curl -s http://localhost:8000/api/subdirectories` : 成功（JSON応答確認）
+  - `run_playwright_script` : 失敗（`.image-stage` / `a.subdir-card` locator timeout）
+
+## Context Handoff (follow-up)
+- Goal:
+  - レビュー指摘に対応し、左下パネルの index 表記を `x / y` に戻し、右上パネルの表示条件をメイン表示領域 hover に限定する。
+- Changes:
+  - `frontend/src/features/viewer/pages/ViewerPage.tsx` で左下の index/総数分離表示をやめ、`imageIndexText` のみ表示に戻した。
+  - `frontend/src/features/viewer/hooks/useViewer.ts` から `imageCount` / `currentImageNumber` の返却を削除した。
+  - `static/styles.css` の右上パネル表示条件を `.image-stage:hover` から `#main-image` / `#empty-message` hover 時のみに変更した。
+  - `npm run build:bundle` 実行により `static/home-app/` の成果物を再更新。
+- Decisions:
+  - Decision: 右上パネルの可視化トリガーを親領域 hover ではなく表示要素 hover の sibling selector に変更。
+  - Rationale: オーバーレイ上 hover や余白 hover で常時見える挙動を避け、要望どおりメイン表示領域 hover 時のみ可視化するため。
+  - Impact: Viewer の CSS 表示トリガーおよび hook の公開値。
+- Open Questions:
+  - browser tool で `/viewer` 画面要素の selector 待機が継続して timeout し、スクリーンショット取得は未完了。
+- Verification:
+  - `npm run build:bundle` : 成功
+  - `python app.py tests/resources/image_root` : 成功
+  - `curl -s http://localhost:8000/api/subdirectories` : 成功
+  - `run_playwright_script` : 失敗（`#main-image` selector timeout）
+
+## Context Handoff (follow-up 2)
+- Goal:
+  - 右上オーバーレイを「左下オーバーレイにホバーした時のみ」表示に変更する。
+- Changes:
+  - `static/styles.css` の右上パネル表示トリガーを `#main-image/#empty-message` hover から `.overlay-panel-left:hover` に変更した。
+  - `npm run build:bundle` 実行で `static/home-app/` の成果物を更新した。
+- Decisions:
+  - Decision: 右上パネルの可視化条件を左下パネル hover の sibling selector に統一。
+  - Rationale: ユーザー指定どおり、左下パネル操作時のみ補助情報を表示するため。
+  - Impact: 閲覧画面の CSS 可視化挙動と配信済みフロント成果物。
+- Open Questions:
+  - browser tool では依然としてホーム画面要素の selector 取得が timeout し、スクリーンショット取得は未完了。
+- Verification:
+  - `npm run build:bundle` : 成功
+  - `python app.py tests/resources/image_root` : 成功
+  - `curl -s http://localhost:8000/api/subdirectories` : 成功
+  - `run_playwright_script` : 失敗（`a.subdir-card` selector timeout）
