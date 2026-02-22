@@ -1,0 +1,19 @@
+services:
+  local-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/usr/src/app
+    command: >
+      sh -c "
+        cd frontend && 
+        npm ci && 
+        npm run build:bundle && 
+        cd .. && 
+        python3 -m venv /tmp/venv &&
+        /tmp/venv/bin/pip install -r requirements-dev.txt && 
+        /tmp/venv/bin/python app.py ./tests/resources/image_root
+      "
+    ports:
+      - "8000:8000"
