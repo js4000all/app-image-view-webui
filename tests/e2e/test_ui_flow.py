@@ -33,8 +33,13 @@ def test_ui_navigation_and_delete_flow(live_server: str) -> None:
         expect(page.locator("#image-index")).to_have_text("1 / 2")
         expect(page.locator("#image-name")).to_have_text("Aurelion.png")
 
+        viewer_url = page.url
+        viewer_directory_match = re.search(r"directory_id=([^&]+)", viewer_url)
+        assert viewer_directory_match is not None
+        viewer_directory_id = viewer_directory_match.group(1)
+
         page.keyboard.press("Escape")
-        expect(page).to_have_url(re.compile(r".*/$"))
+        expect(page).to_have_url(re.compile(rf".*/\?directory_id={viewer_directory_id}$"))
         expect(page.locator("#subdir-list .subdir-card")).to_have_count(2)
 
         page.locator("#subdir-list .subdir-card", has_text="dir1").click()
@@ -46,8 +51,8 @@ def test_ui_navigation_and_delete_flow(live_server: str) -> None:
         expect(page.locator("#image-index")).to_have_text("1 / 1")
         expect(page.locator("#image-name")).to_have_text("cat1.png")
 
-        page.keyboard.press("Escape")
-        expect(page).to_have_url(re.compile(r".*/$"))
+        page.locator(".home-link").click()
+        expect(page).to_have_url(re.compile(rf".*/\?directory_id={viewer_directory_id}$"))
 
         page.locator("#subdir-list .subdir-card", has_text="dir2").click()
         expect(page).to_have_url(re.compile(r".*/viewer\?directory_id=.*"))
