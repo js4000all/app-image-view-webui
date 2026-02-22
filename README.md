@@ -15,6 +15,25 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+## テストセットアップ（開発・E2E共通）
+開発用テストを実行する前に、まず開発依存を導入してください。
+
+```sh
+python -m pip install -r requirements-dev.txt
+```
+
+### E2Eテスト（Playwright）
+`tests/e2e` では Playwright の Chromium 実体とOS依存ライブラリが必要です。
+E2Eを実行する際は、以下をこの順で実行します。
+
+```sh
+python -m pip install -r requirements-dev.txt
+python -m playwright install --with-deps chromium
+pytest tests/e2e -q
+```
+
+`python -m playwright install --with-deps chromium` を省略すると、環境によっては E2E が skip / fail します。
+
 ## 起動方法
 ```sh
 python app.py /path/to/image-dir

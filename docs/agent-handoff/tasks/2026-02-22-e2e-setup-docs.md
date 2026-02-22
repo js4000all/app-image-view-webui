@@ -1,0 +1,21 @@
+## Context Handoff
+- Goal:
+  - エージェントが E2E 実行前に必須セットアップ（dev依存 + Playwright Chromium）を行うよう、恒久ドキュメントを明確化する。
+- Changes:
+  - `AGENTS.md` のテスト観点に、`tests/e2e` 実行前の必須手順として
+    - `python -m pip install -r requirements-dev.txt`
+    - `python -m playwright install --with-deps chromium`
+    - `pytest tests/e2e -q`
+    を追加。
+  - `README.md` に「テストセットアップ（開発・E2E共通）」と「E2Eテスト（Playwright）」節を追加し、実行順を明記。
+  - `docs/ARCHITECTURE.md` のテストコマンドを `python -m pip` 表記へ統一し、E2E専用の事前セットアップ手順を追記。
+- Decisions:
+  - Decision: E2E 前提条件を `AGENTS.md`（エージェント規約）と `README.md`/`docs/ARCHITECTURE.md`（恒久運用情報）の両方に記載。
+  - Rationale: 「実行ルール」と「セットアップ手順」を別文脈でも参照できるようにし、見落としを減らすため。
+  - Impact: 依存未導入での E2E skip/fail を事前に抑止しやすくなる。
+- Open Questions:
+  - CI 以外のローカル環境で `--with-deps` 実行に sudo 相当権限が必要な場合のガイドは追加余地あり。
+- Verification:
+  - `python -m pip install -r requirements-dev.txt`（成功）
+  - `python -m playwright install --with-deps chromium`（成功）
+  - `pytest tests/e2e -q`（成功: 1 passed）

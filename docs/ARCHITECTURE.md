@@ -98,6 +98,14 @@ npm run build:bundle
 依存関係を未インストールの状態で `pytest` を実行すると失敗するため、先に開発用依存を導入してください。
 
 ```sh
-pip install -r requirements-dev.txt
+python -m pip install -r requirements-dev.txt
 pytest -q
+```
+
+E2E（`tests/e2e`）を実行する場合は、ブラウザ実体を先に導入してください。
+
+```sh
+python -m pip install -r requirements-dev.txt
+python -m playwright install --with-deps chromium
+pytest tests/e2e -q
 ```
