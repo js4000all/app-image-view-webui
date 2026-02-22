@@ -41,3 +41,17 @@
   - なし。
 - Verification:
   - `cd frontend && npm run build:bundle`（成功）
+
+## Context Handoff (e2e image-name text fix)
+- Goal: `#image-name` のテキスト期待値（ファイル名のみ）に合わせて e2e を通す。
+- Changes:
+  - `frontend/src/features/viewer/pages/ViewerPage.tsx` の `#image-name` を `<span>` 化し、ID対象テキストをファイル名のみへ変更。
+  - ラベル `ファイル名:` は親 `<p>` 側に残して表示上の文脈は維持。
+- Decisions:
+  - Decision: テスト側を変えず、ID要素の責務を「値部分」に限定した。
+  - Rationale: 既存 e2e 契約に合わせる方が影響範囲が小さいため。
+  - Impact: `#image-name` 取得時は純粋なファイル名（または `-`）が返る。
+- Open Questions:
+  - なし。
+- Verification:
+  - `cd frontend && npm run build:bundle`（成功）

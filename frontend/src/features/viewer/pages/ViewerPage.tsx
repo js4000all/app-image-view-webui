@@ -109,8 +109,8 @@ export function ViewerPage(props: ViewerPageProps) {
           <p id="selected-subdir" className="overlay-line selected-subdir">
             {currentDirectory ? `フォルダ名: ${currentDirectory.name}` : 'フォルダ名: -'}
           </p>
-          <p id="image-name" className="overlay-line image-name">
-            {imageNameText ? `ファイル名: ${imageNameText}` : 'ファイル名: -'}
+          <p className="overlay-line image-name">
+            ファイル名: <span id="image-name">{imageNameText || '-'}</span>
           </p>
           <p id="status" className="overlay-line status-message">
             ステータス: {status}
