@@ -1,0 +1,15 @@
+## Context Handoff
+- Goal: 最後の画像表示中に次へ移動した際、ラップ判定の前に画像リストを最新化する。
+- Changes:
+  - `frontend/src/features/viewer/hooks/useViewer.ts` の `moveNext` を非同期化。
+  - 末尾以外では従来どおりローカル配列で次画像へ遷移。
+  - 末尾到達時のみ `fetchViewerImages` で再取得し、再取得後の配列長で次インデックスを計算するよう変更。
+  - 再取得結果が空の場合は `画像が見つかりません。` を表示するようにした。
+- Decisions:
+  - Decision: 末尾移動時だけ再取得する。
+  - Rationale: 毎回再取得すると不要な通信が増えるため、要件で指定された境界条件に限定した。
+  - Impact: ビューアーの次画像移動（右キー/ホイール下）が末尾到達時のみ非同期挙動になる。
+- Open Questions:
+  - 現時点では配列長のみで判定し、並び順や画像ID差分は追跡しない。
+- Verification:
+  - `cd frontend && npm run build:bundle`（成功）
