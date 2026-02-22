@@ -1,0 +1,21 @@
+## Context Handoff
+- Goal: ホーム画面のディレクトリ名変更導線を「大きなテキストボタン」から「ディレクトリ名横の小さなアイコンボタン」へ変更する。
+- Changes:
+  - `frontend/src/features/home/components/SubdirectoryCard.tsx` で名前変更ボタンをカード外からタイトル行へ移動し、アイコンボタン化。
+  - `static/styles.css` でタイトル行のレイアウトと小型アイコンボタンのスタイルを調整。
+  - `npm run build:bundle` 実行により `static/home-app/assets/index-B7xEZGPH.js` を更新。
+- Decisions:
+  - Decision: リネームボタンを `a.subdir-card` 内に配置し、クリック時に `preventDefault` / `stopPropagation` を行う。
+  - Rationale: タイトル横に配置する要件を満たしつつ、カード遷移の誤発火を防ぐため。
+  - Impact: ホーム画面のディレクトリカード上部レイアウトとリネーム操作のUIのみ変更。
+- Open Questions:
+  - browser tool で `http://localhost:8000` と `http://127.0.0.1:8000` の双方が `Not Found` となり、スクリーンショット確認が未完了。
+- Verification:
+  - `npm ci` 成功。
+  - `npm run build:bundle` 成功。
+  - `curl -i http://localhost:8000/` 成功（HTTP 200）。
+  - `curl -i http://localhost:8000/api/subdirectories` 成功（HTTP 200）。
+  - browser tool 経由スクリーンショット取得は実行したが表示は `Not Found`。
+- Verification (追記):
+  - `pytest -q tests/api` は初回 `ModuleNotFoundError: httpx` で失敗。
+  - `pip install httpx pytest` 後、`pytest -q tests/api` で 6 passed。

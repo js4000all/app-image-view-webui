@@ -169,22 +169,22 @@ body {
 }
 
 .subdir-row {
-  display: flex;
-  gap: 10px;
-  align-items: stretch;
-}
-
-.subdir-row .subdir-card {
-  flex: 1;
+  display: block;
 }
 
 .subdir-rename-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid #465264;
-  border-radius: 6px;
+  border-radius: 999px;
   background: #252c37;
   color: inherit;
-  padding: 0 12px;
-  white-space: nowrap;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
   cursor: pointer;
 }
 
@@ -208,6 +208,10 @@ body {
 }
 
 .subdir-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
   margin-bottom: 8px;
 }
 
