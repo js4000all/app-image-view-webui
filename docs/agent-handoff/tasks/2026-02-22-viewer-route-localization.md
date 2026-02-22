@@ -1,0 +1,16 @@
+## Context Handoff
+- Goal: `frontend/src/App.tsx` の閲覧画面判定と閲覧画面URL生成の対応関係を近接配置し、逆方向の対応を読み取りやすくする。
+- Changes:
+  - `buildViewerPath()` 近傍に `parseViewerRoute()` を追加。
+  - 閲覧画面判定を `location.pathname.startsWith('/viewer')` 相当へ変更し、`directory_id` 取得も同関数へ集約。
+  - `App` 本体の分岐を `viewerRoute.isViewer` ベースへ変更。
+  - `npm run build:bundle` 実行により `static/home-app` 成果物を更新。
+- Decisions:
+  - Decision: 閲覧画面URLの「生成(build)」と「解釈(parse)」を同一ファイル内の近接した関数に集約。
+  - Rationale: `/viewer?directory_id=...` と `/viewer*` 判定の対応を相互参照しやすくし、将来のパス変更時の見落としを減らすため。
+  - Impact: フロントのルーティング分岐（`frontend/src/App.tsx`）と配布用バンドル成果物（`static/home-app`）。
+- Open Questions:
+  - `/viewerX` など `startsWith('/viewer')` が真になる境界ケースを許容すべきか（現仕様では許容）。必要なら `^/viewer(?:/|$)` 相当の厳密判定へ変更余地あり。
+- Verification:
+  - `npm run build` は script 未定義で失敗（想定外コマンド）。
+  - `npm run build:bundle` は成功し、Vite build 完了を確認。
