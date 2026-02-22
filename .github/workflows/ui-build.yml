@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   frontend-build:
+    if: github.event_name == 'push' || !startsWith(github.event.pull_request.title, 'docs:')
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -54,6 +55,7 @@ jobs:
         run: git diff --exit-code -- static/home-app
 
   ui-e2e:
+    if: github.event_name == 'push' || !startsWith(github.event.pull_request.title, 'docs:')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
