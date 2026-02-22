@@ -84,26 +84,30 @@ export function ViewerPage(props: ViewerPageProps) {
           画像がありません
         </p>
         <div className="overlay-panel overlay-panel-left" aria-live="polite">
-          <a
-            className="home-link"
-            href="/"
-            onClick={(event) => {
-              event.preventDefault()
-              onNavigateHome(currentDirectory?.directory_id ?? '')
-            }}
-          >
-            ← ディレクトリ一覧へ
-          </a>
           <p id="image-index" className="overlay-line">{imageIndexText}</p>
-          <button
-            id="delete-current-image"
-            type="button"
-            className="image-delete-button"
-            disabled={!canDelete}
-            onClick={() => void deleteCurrentImage()}
-          >
-            削除
-          </button>
+          <div className="overlay-action-row">
+            <a
+              className="home-link home-icon-link"
+              href="/"
+              aria-label="ディレクトリ一覧へ戻る"
+              title="ディレクトリ一覧へ戻る"
+              onClick={(event) => {
+                event.preventDefault()
+                onNavigateHome(currentDirectory?.directory_id ?? '')
+              }}
+            >
+              ⮌
+            </a>
+            <button
+              id="delete-current-image"
+              type="button"
+              className="image-delete-button"
+              disabled={!canDelete}
+              onClick={() => void deleteCurrentImage()}
+            >
+              削除
+            </button>
+          </div>
         </div>
         <div className="overlay-panel overlay-panel-right" aria-live="polite">
           <p id="selected-subdir" className="overlay-line selected-subdir">
