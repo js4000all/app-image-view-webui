@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
 import { SubdirectoryCard } from '../components/SubdirectoryCard'
 import { useSubdirectories } from '../hooks/useSubdirectories'
@@ -6,13 +6,15 @@ import { useSubdirectoryThumbnails } from '../hooks/useSubdirectoryThumbnails'
 import type { DirectoryEntry } from '../../../types/home'
 
 type HomePageProps = {
+  requestedDirectoryId: string
   onOpenViewer: (directoryId: string) => void
 }
 
 export function HomePage(props: HomePageProps) {
-  const { onOpenViewer } = props
+  const { requestedDirectoryId, onOpenViewer } = props
   const { subdirectories, status, loading, refreshSubdirectories, setStatus } = useSubdirectories()
-  const { thumbnails, registerCard, resetThumbnails } = useSubdirectoryThumbnails(subdirectories)
+  const { thumbnails, registerCard, resetThumbnails, scrollToCard } = useSubdirectoryThumbnails(subdirectories)
+  const hasScrolledRef = useRef(false)
 
   const handleReload = useCallback(async () => {
     await refreshSubdirectories()
@@ -27,6 +29,22 @@ export function HomePage(props: HomePageProps) {
     },
     [refreshSubdirectories, resetThumbnails, setStatus]
   )
+
+  useEffect(() => {
+    if (!requestedDirectoryId) {
+      hasScrolledRef.current = false
+      return
+    }
+
+    if (hasScrolledRef.current) {
+      return
+    }
+
+    const scrolled = scrollToCard(requestedDirectoryId)
+    if (scrolled) {
+      hasScrolledRef.current = true
+    }
+  }, [requestedDirectoryId, scrollToCard, subdirectories])
 
   return (
     <main className="home">

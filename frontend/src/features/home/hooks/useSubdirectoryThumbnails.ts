@@ -7,6 +7,7 @@ type UseSubdirectoryThumbnailsResult = {
   thumbnails: Record<string, ThumbnailState>
   registerCard: (directoryId: string, element: HTMLAnchorElement | null) => void
   resetThumbnails: () => void
+  scrollToCard: (directoryId: string) => boolean
 }
 
 export function useSubdirectoryThumbnails(
@@ -107,9 +108,21 @@ export function useSubdirectoryThumbnails(
     }
   }, [])
 
+  const scrollToCard = useCallback((directoryId: string): boolean => {
+    const cardElement = cardElements.current[directoryId]
+    if (!cardElement) {
+      return false
+    }
+
+    cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    cardElement.focus({ preventScroll: true })
+    return true
+  }, [])
+
   return {
     thumbnails,
     registerCard,
-    resetThumbnails
+    resetThumbnails,
+    scrollToCard
   }
 }
