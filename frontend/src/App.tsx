@@ -3,20 +3,56 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { HomePage } from './features/home/pages/HomePage'
 import { ViewerPage } from './features/viewer/pages/ViewerPage'
 
-function buildViewerPath(directoryId: string): string {
-  return `/viewer?directory_id=${encodeURIComponent(directoryId)}`
+type LocationState = {
+  pathname: string
+  search: string
 }
 
-function currentPathWithQuery(): string {
-  return `${window.location.pathname}${window.location.search}`
+const HOME_PATH = '/'
+const VIEWER_PATH = '/viewer'
+const DIRECTORY_ID_PARAM = 'directory_id'
+
+function buildViewerPath(directoryId: string): string {
+  return `${VIEWER_PATH}?${DIRECTORY_ID_PARAM}=${encodeURIComponent(directoryId)}`
+}
+
+type ViewerRoute = {
+  isViewer: boolean
+  requestedDirectoryId: string
+}
+
+function parseViewerRoute(location: LocationState): ViewerRoute {
+  if (!location.pathname.startsWith(VIEWER_PATH)) {
+    return {
+      isViewer: false,
+      requestedDirectoryId: '',
+    }
+  }
+
+  const params = new URLSearchParams(location.search)
+  return {
+    isViewer: true,
+    requestedDirectoryId: params.get(DIRECTORY_ID_PARAM) ?? '',
+  }
+}
+
+function getLocationState(): LocationState {
+  return {
+    pathname: window.location.pathname,
+    search: window.location.search,
+  }
+}
+
+function buildPath({ pathname, search }: LocationState): string {
+  return `${pathname}${search}`
 }
 
 export function App() {
-  const [path, setPath] = useState(() => currentPathWithQuery())
+  const [location, setLocation] = useState(() => getLocationState())
 
   useEffect(() => {
     const handlePopState = () => {
-      setPath(currentPathWithQuery())
+      setLocation(getLocationState())
     }
 
     window.addEventListener('popstate', handlePopState)
@@ -26,16 +62,16 @@ export function App() {
   }, [])
 
   const navigate = useCallback((nextPath: string) => {
-    if (currentPathWithQuery() === nextPath) {
+    if (buildPath(location) === nextPath) {
       return
     }
 
     window.history.pushState(null, '', nextPath)
-    setPath(nextPath)
-  }, [])
+    setLocation(getLocationState())
+  }, [location])
 
   const navigateHome = useCallback(() => {
-    navigate('/')
+    navigate(HOME_PATH)
   }, [navigate])
 
   const navigateViewer = useCallback(
@@ -45,13 +81,10 @@ export function App() {
     [navigate]
   )
 
-  const requestedDirectoryId = useMemo(() => {
-    const params = new URLSearchParams(window.location.search)
-    return params.get('directory_id') ?? ''
-  }, [path])
+  const viewerRoute = useMemo(() => parseViewerRoute(location), [location])
 
-  if (window.location.pathname === '/viewer') {
-    return <ViewerPage requestedDirectoryId={requestedDirectoryId} onNavigateHome={navigateHome} />
+  if (viewerRoute.isViewer) {
+    return <ViewerPage requestedDirectoryId={viewerRoute.requestedDirectoryId} onNavigateHome={navigateHome} />
   }
 
   return <HomePage onOpenViewer={navigateViewer} />
