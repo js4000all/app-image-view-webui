@@ -1,0 +1,15 @@
+## Context Handoff
+- Goal: ビューワーで最後の画像表示中に「次へ」へ進む際、現在保持中の配列ではなく最新の画像一覧長を使って遷移先を判定する。
+- Changes:
+  - `frontend/src/features/viewer/hooks/useViewer.ts` の `moveNext` を非同期化し、末尾画像での next 操作時のみ `fetchViewerImages` で一覧を再取得するよう変更。
+  - 再取得後は「配列長だけ」で遷移先を判定し、`currentIndex + 1` が新しい長さ以上なら `0`、未満ならその index を採用。
+  - `npm run build:bundle` 実行により `static/home-app/index.html` と `static/home-app/assets/index-Did6VmYM.js` を更新。
+- Decisions:
+  - Decision: 末尾画像での next 操作に限定して一覧再取得を実施する。
+  - Rationale: 通常の next 操作は既存挙動を維持しつつ、問題となっている「末尾→先頭への無条件ループ」判断だけを最新長さ基準に切り替えるため。
+  - Impact: ビューワーの next 遷移ロジックとステータス表示にのみ影響。
+- Open Questions:
+  - 画像の増減が同時に起こる競合タイミングでの体感挙動（連打時の見え方）は未評価。
+- Verification:
+  - `npm ci` 成功。
+  - `npm run build:bundle` 成功。

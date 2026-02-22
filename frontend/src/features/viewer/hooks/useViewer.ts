@@ -93,21 +93,55 @@ export function useViewer() {
     }
   }, [loadImages])
 
-  const moveNext = useCallback(() => {
-    setState((current) => {
-      if (current.images.length === 0) {
-        return current
+  const moveNext = useCallback(async () => {
+    const currentDirectory = state.currentDirectory
+    const isAtLastImage = state.images.length > 0 && state.currentIndex === state.images.length - 1
+
+    if (!currentDirectory || !isAtLastImage) {
+      setState((current) => {
+        if (current.images.length === 0) {
+          return current
+        }
+
+        const nextIndex = (current.currentIndex + 1) % current.images.length
+        const nextImage = current.images[nextIndex]
+        return {
+          ...current,
+          currentIndex: nextIndex,
+          status: `${nextIndex + 1} / ${current.images.length}: ${nextImage.name}`
+        }
+      })
+      return
+    }
+
+    try {
+      const reloadedImages = await fetchViewerImages(currentDirectory.directory_id)
+
+      if (reloadedImages.length === 0) {
+        setState((current) => ({
+          ...current,
+          images: [],
+          currentIndex: -1,
+          status: '画像が見つかりません。'
+        }))
+        return
       }
 
-      const nextIndex = (current.currentIndex + 1) % current.images.length
-      const nextImage = current.images[nextIndex]
-      return {
-        ...current,
-        currentIndex: nextIndex,
-        status: `${nextIndex + 1} / ${current.images.length}: ${nextImage.name}`
-      }
-    })
-  }, [])
+      setState((current) => {
+        const nextIndex = current.currentIndex + 1 >= reloadedImages.length ? 0 : current.currentIndex + 1
+        const nextImage = reloadedImages[nextIndex]
+        return {
+          ...current,
+          images: reloadedImages,
+          currentIndex: nextIndex,
+          status: `${nextIndex + 1} / ${reloadedImages.length}: ${nextImage.name}`
+        }
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      updateStatus(`画像一覧の取得に失敗しました: ${message}`)
+    }
+  }, [state.currentDirectory, state.currentIndex, state.images.length, updateStatus])
 
   const movePrevious = useCallback(() => {
     setState((current) => {
