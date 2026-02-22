@@ -94,20 +94,52 @@ export function useViewer() {
   }, [loadImages])
 
   const moveNext = useCallback(() => {
-    setState((current) => {
-      if (current.images.length === 0) {
-        return current
+    void (async () => {
+      if (state.images.length === 0) {
+        return
       }
 
-      const nextIndex = (current.currentIndex + 1) % current.images.length
-      const nextImage = current.images[nextIndex]
-      return {
-        ...current,
-        currentIndex: nextIndex,
-        status: `${nextIndex + 1} / ${current.images.length}: ${nextImage.name}`
+      if (state.currentIndex < state.images.length - 1) {
+        const nextIndex = state.currentIndex + 1
+        const nextImage = state.images[nextIndex]
+        setState((current) => ({
+          ...current,
+          currentIndex: nextIndex,
+          status: `${nextIndex + 1} / ${state.images.length}: ${nextImage.name}`
+        }))
+        return
       }
-    })
-  }, [])
+
+      if (!state.currentDirectory) {
+        return
+      }
+
+      try {
+        const latestImages = await fetchViewerImages(state.currentDirectory.directory_id)
+        if (latestImages.length === 0) {
+          setState((current) => ({
+            ...current,
+            images: [],
+            currentIndex: -1,
+            status: '画像が見つかりません。'
+          }))
+          return
+        }
+
+        const nextIndex = (state.currentIndex + 1) % latestImages.length
+        const nextImage = latestImages[nextIndex]
+        setState((current) => ({
+          ...current,
+          images: latestImages,
+          currentIndex: nextIndex,
+          status: `${nextIndex + 1} / ${latestImages.length}: ${nextImage.name}`
+        }))
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        updateStatus(`画像一覧の更新に失敗しました: ${message}`)
+      }
+    })()
+  }, [state.currentDirectory, state.currentIndex, state.images, updateStatus])
 
   const movePrevious = useCallback(() => {
     setState((current) => {
