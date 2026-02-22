@@ -21,6 +21,10 @@ type ViewerRoute = {
   requestedDirectoryId: string
 }
 
+type HomeRoute = {
+  requestedDirectoryId: string
+}
+
 function parseViewerRoute(location: LocationState): ViewerRoute {
   if (!location.pathname.startsWith(VIEWER_PATH)) {
     return {
@@ -32,6 +36,19 @@ function parseViewerRoute(location: LocationState): ViewerRoute {
   const params = new URLSearchParams(location.search)
   return {
     isViewer: true,
+    requestedDirectoryId: params.get(DIRECTORY_ID_PARAM) ?? '',
+  }
+}
+
+function parseHomeRoute(location: LocationState): HomeRoute {
+  if (location.pathname !== HOME_PATH) {
+    return {
+      requestedDirectoryId: '',
+    }
+  }
+
+  const params = new URLSearchParams(location.search)
+  return {
     requestedDirectoryId: params.get(DIRECTORY_ID_PARAM) ?? '',
   }
 }
@@ -70,8 +87,16 @@ export function App() {
     setLocation(getLocationState())
   }, [location])
 
-  const navigateHome = useCallback(() => {
-    navigate(HOME_PATH)
+  const navigateHome = useCallback((directoryId: string) => {
+    if (!directoryId) {
+      navigate(HOME_PATH)
+      return
+    }
+
+    const params = new URLSearchParams({
+      [DIRECTORY_ID_PARAM]: directoryId,
+    })
+    navigate(`${HOME_PATH}?${params.toString()}`)
   }, [navigate])
 
   const navigateViewer = useCallback(
@@ -82,10 +107,11 @@ export function App() {
   )
 
   const viewerRoute = useMemo(() => parseViewerRoute(location), [location])
+  const homeRoute = useMemo(() => parseHomeRoute(location), [location])
 
   if (viewerRoute.isViewer) {
     return <ViewerPage requestedDirectoryId={viewerRoute.requestedDirectoryId} onNavigateHome={navigateHome} />
   }
 
-  return <HomePage onOpenViewer={navigateViewer} />
+  return <HomePage requestedDirectoryId={homeRoute.requestedDirectoryId} onOpenViewer={navigateViewer} />
 }

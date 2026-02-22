@@ -4,7 +4,7 @@ import { useViewer } from '../hooks/useViewer'
 
 type ViewerPageProps = {
   requestedDirectoryId: string
-  onNavigateHome: () => void
+  onNavigateHome: (directoryId: string) => void
 }
 
 export function ViewerPage(props: ViewerPageProps) {
@@ -37,7 +37,7 @@ export function ViewerPage(props: ViewerPageProps) {
       }
 
       if (event.key === 'Escape') {
-        onNavigateHome()
+        onNavigateHome(currentDirectory?.directory_id ?? '')
       }
 
       if (event.key === 'Delete') {
@@ -49,7 +49,7 @@ export function ViewerPage(props: ViewerPageProps) {
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [deleteCurrentImage, moveNext, movePrevious, onNavigateHome])
+  }, [currentDirectory, deleteCurrentImage, moveNext, movePrevious, onNavigateHome])
 
   useEffect(() => {
     const handleWheel = (event: WheelEvent) => {
@@ -89,7 +89,7 @@ export function ViewerPage(props: ViewerPageProps) {
             href="/"
             onClick={(event) => {
               event.preventDefault()
-              onNavigateHome()
+              onNavigateHome(currentDirectory?.directory_id ?? '')
             }}
           >
             ← ディレクトリ一覧へ

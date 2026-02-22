@@ -1,0 +1,35 @@
+## Context Handoff
+- Goal: ホーム画面URLに `directory_id` を付与した場合、そのディレクトリ位置へジャンプできるようにし、閲覧画面から戻る際にも同パラメータを引き継ぐ。
+- Changes:
+  - `frontend/src/App.tsx` でホームルートのクエリ解析 (`parseHomeRoute`) を追加し、`navigateHome(directoryId)` で `/?directory_id=...` を生成するよう変更。
+  - `frontend/src/features/viewer/pages/ViewerPage.tsx` でホーム遷移時（リンククリック/ESC）に現在ディレクトリIDを渡すよう変更。
+  - `frontend/src/features/home/hooks/useSubdirectoryThumbnails.ts` に `scrollToCard(directoryId)` を追加し、カード要素へ `scrollIntoView` + focus できるよう拡張。
+  - `frontend/src/features/home/pages/HomePage.tsx` で `requestedDirectoryId` を受け取り、該当カードが描画されたタイミングで一度だけスクロールする effect を追加。
+  - `npm run build:bundle` 実行で `static/home-app` の成果物を更新。
+- Decisions:
+  - Decision: ホーム画面の「ジャンプ先指定」は新規APIを増やさず、既存の `directory_id` クエリを再利用する。
+  - Rationale: 閲覧画面ですでに同一キーを使っており、URL設計の一貫性を維持できるため。
+  - Impact: SPA ルーティング（`App.tsx`）とホーム/閲覧画面間の戻り導線、ホーム一覧のスクロール挙動。
+- Open Questions:
+  - `directory_id` が存在しない値の場合にユーザー向けステータスメッセージを出すかは未対応（現状はスクロールせず通常表示）。
+- Verification:
+  - `npm ci` 成功。
+  - `npm run build:bundle` 成功（`static/home-app` 更新）。
+  - `pytest tests/api/test_api_contract.py` は初回 `httpx` 未導入で失敗後、`pip install -r requirements-dev.txt` 実施で依存導入し再実行で成功（6 passed）。
+  - browser tool で `http://127.0.0.1:8000/?directory_id=dir2` を開いてスクリーンショット取得。
+
+## Context Handoff (follow-up)
+- Goal: 新仕様（ホーム復帰時に `directory_id` を付与）に合わせて e2e テスト期待値を更新し、失敗を解消する。
+- Changes:
+  - `tests/e2e/test_ui_flow.py` のホーム復帰URL期待値を `/$` から `/?directory_id=<viewer_directory_id>` へ変更。
+  - 同テストで `Escape` だけでなく `.home-link` クリックでも同仕様を検証するよう更新。
+- Decisions:
+  - Decision: 直前の viewer URL から `directory_id` を抽出して可変IDを検証する。
+  - Rationale: テストデータ上の directory_id はランダム生成されるため固定文字列比較は不適切。
+  - Impact: e2e の戻る導線検証が実装仕様と一致。
+- Open Questions:
+  - CI/ローカルで `--with-deps` を事前に満たせない環境では e2e が skip になる点は継続課題。
+- Verification:
+  - `pytest tests/e2e/test_ui_flow.py` は Playwright システム依存不足メッセージにより skip。
+  - `pytest tests/e2e/test_ui_flow.py -rs` で skip 理由を確認。
+  - `pytest tests/api/test_api_contract.py` は 6 passed。
