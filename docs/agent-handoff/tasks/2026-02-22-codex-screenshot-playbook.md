@@ -1,0 +1,13 @@
+## Context Handoff
+- Goal:
+  - `docs/` 配下に、Codex 実行時の最小スクリーンショット手順テンプレートを追加する。
+- Changes:
+  - `docs/screenshot-playbook.md` を新規作成し、前提条件、`run_playwright_script` 例、`Not Found` 時のデバッグ手順、相対パス保存ルールを記載。
+- Decisions:
+  - Decision: 実行URLは `http://127.0.0.1:8000/` を明示。
+  - Rationale: Codex 実行環境で `localhost` 解決差異が起きるケースの切り分けを容易にするため。
+  - Impact: スクリーンショット取得手順の再現性向上、トラブル時の初動を標準化。
+- Open Questions:
+  - `run_playwright_script` の運用例を README にも重複掲示するかは未決定。
+- Verification:
+  - `sed -n '1,220p' docs/screenshot-playbook.md` で記載内容を確認（成功）。
