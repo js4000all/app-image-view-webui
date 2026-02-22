@@ -1,0 +1,20 @@
+## Context Handoff
+- Goal:
+  - 閲覧画面の情報表示を画像上オーバーレイへ変更し、左下は常時表示、右上はホバー時のみ表示にする。
+- Changes:
+  - `frontend/src/features/viewer/pages/ViewerPage.tsx` のレイアウトをステータスバー構成からオーバーレイパネル構成へ変更。
+  - `frontend/src/features/viewer/hooks/useViewer.ts` で現在画像番号と画像総数を個別に参照できる値を返却。
+  - `static/styles.css` にオーバーレイパネル（左下常時表示、右上ホバー表示）のスタイルを追加し、旧ステータスバー前提のスタイルを整理。
+  - `npm run build:bundle` 実行により `static/home-app/` の成果物を更新。
+- Decisions:
+  - Decision: 既存の「ホームへ戻る」導線は削除せず左下パネルへ残した。
+  - Rationale: 操作導線を維持しつつ、要求された情報パネル化を最小差分で満たすため。
+  - Impact: Viewer 画面の DOM 構造と CSS クラス、配信済みフロント成果物。
+- Open Questions:
+  - browser tool からローカル画面要素を取得できず、変更後UIのスクリーンショット採取は未完了。
+- Verification:
+  - `npm ci` : 成功
+  - `npm run build:bundle` : 成功
+  - `python app.py tests/resources/image_root` : 成功（サーバ起動ログ確認）
+  - `curl -s http://localhost:8000/api/subdirectories` : 成功（JSON応答確認）
+  - `run_playwright_script` : 失敗（`.image-stage` / `a.subdir-card` locator timeout）

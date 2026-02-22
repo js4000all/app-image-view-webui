@@ -16,16 +16,13 @@ body {
 
 .main {
   height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
   padding: 12px;
-  gap: 8px;
   background: #171b22;
   overflow: hidden;
 }
 
 .image-stage {
+  height: 100%;
   min-height: 0;
   width: 100%;
   place-items: center;
@@ -48,41 +45,66 @@ body {
   color: #9aa5b1;
 }
 
-.status-bar {
-  width: 100%;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border-top: 1px solid #2f3845;
-  padding-top: 8px;
-  white-space: nowrap;
-  overflow: hidden;
-}
-
 .home-link {
   color: #88c0d0;
   text-decoration: none;
-  flex-shrink: 0;
 }
 
 .home-link:hover {
   text-decoration: underline;
 }
 
-.selected-subdir,
-#image-index,
-#image-name {
-  color: #9aa5b1;
+.overlay-panel {
+  position: absolute;
+  max-width: min(70vw, 420px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid rgba(143, 161, 179, 0.6);
+  border-radius: 10px;
+  background: rgba(16, 18, 22, 0.78);
+  backdrop-filter: blur(4px);
+  color: #d8dee9;
 }
 
-#image-name {
+.overlay-panel-left {
+  left: 12px;
+  bottom: 12px;
+}
+
+.overlay-panel-right {
+  right: 12px;
+  top: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.image-stage:hover .overlay-panel-right,
+.image-stage:focus-within .overlay-panel-right {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.overlay-line {
+  margin: 0;
+  color: #9aa5b1;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.image-name,
+.status-message {
+  max-width: min(64vw, 360px);
+}
+
 .image-delete-button {
-  margin-left: auto;
+  margin-top: 4px;
+  align-self: flex-start;
   border: 1px solid #bf616a;
   border-radius: 6px;
   background: #5b2b33;
@@ -102,11 +124,15 @@ body {
   cursor: not-allowed;
 }
 
-.status-message {
-  margin: 0;
-  width: 100%;
-  flex-shrink: 0;
-  color: #9aa5b1;
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
 }
 
 .home {
