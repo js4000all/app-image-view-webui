@@ -1,0 +1,13 @@
+## Context Handoff
+- Goal: `docs/agent-handoff/README.md` と `docs/agent-handoff/tasks/README.md` に browser tool 失敗時の記録テンプレートを追加する。
+- Changes:
+  - `docs/agent-handoff/README.md` に「browser tool 失敗時の記録テンプレート」節を追加。
+  - `docs/agent-handoff/tasks/README.md` に「browser tool 失敗時の追記テンプレート」節を追加。
+- Decisions:
+  - Decision: 両READMEに同一フォーマットのテンプレートを掲載。
+  - Rationale: タスク運用ルール側とタスク実体側のどちらを先に読む場合でも、同じ切り分け情報を記録できるようにするため。
+  - Impact: browser tool 失敗時の再現性と切り分け速度が向上。
+- Open Questions:
+  - なし。
+- Verification:
+  - `git diff -- docs/agent-handoff/README.md docs/agent-handoff/tasks/README.md docs/agent-handoff/tasks/2026-02-22-browser-tool-failure-template.md` で差分確認。
