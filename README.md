@@ -75,18 +75,24 @@ Codex の browser tool（Playwright 実行環境）では、`localhost` の解�
 
 回避策:
 
-1. まずシェル側でアプリが正常起動していることを確認する。
+1. シェル側で次の固定コマンドを使ってアプリを起動し、HTTP 応答を確認する。
 
 ```sh
-python app.py tests/resources/image_root
-curl -i http://localhost:8000/
-curl -i http://localhost:8000/api/subdirectories
+python app.py tests/resources/image_root --host 0.0.0.0 --port 8000
+curl -i http://127.0.0.1:8000/
+curl -i http://127.0.0.1:8000/api/subdirectories
 ```
 
-2. browser tool でスクリーンショットを取る前に、`/api/subdirectories` の HTTP ステータスが 200 か確認する。
-3. browser tool 側で `localhost` が到達不能な場合は、スクリーンショット運用を行わず、
-   代替として `curl` の結果（HTTP 200 と JSON 応答）を確認証跡として扱う。
-4. 起動引数のパスを必ず `tests/resources/image_root`（`_`）にする（`image-root` は誤り）。
+2. browser tool 実行時は `run_playwright_script` の `ports_to_forward: [8000]` を必須にする。
+3. `page.goto` は `http://127.0.0.1:8000/` を優先し、`localhost` は環境差で失敗し得るため常用しない。
+4. スクリーンショット前にアプリ固有セレクタの描画完了を待つ。
+   - 例: `await page.wait_for_selector('#subdir-list .subdir-card')`
+5. 失敗時は以下の順で切り分ける。
+   - `curl http://127.0.0.1:8000/api/subdirectories` が 200 / JSON 応答か確認
+   - browser 側の待機タイムアウトログ（`wait_for_selector` / `goto`）を確認
+   - `page.goto` の URL（`127.0.0.1` とパス末尾 `/`）を見直す
+6. browser tool 側で接続できない場合は、スクリーンショット運用を中止し、`curl` 結果を確認証跡として残す。
+7. 起動引数のパスを必ず `tests/resources/image_root`（`_`）にする（`image-root` は誤り）。
 
 
 ## フロントエンド（React + TypeScript + Vite）
