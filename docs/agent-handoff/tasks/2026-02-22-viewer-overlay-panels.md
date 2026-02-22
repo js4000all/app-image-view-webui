@@ -38,3 +38,21 @@
   - `python app.py tests/resources/image_root` : 成功
   - `curl -s http://localhost:8000/api/subdirectories` : 成功
   - `run_playwright_script` : 失敗（`#main-image` selector timeout）
+
+## Context Handoff (follow-up 2)
+- Goal:
+  - 右上オーバーレイを「左下オーバーレイにホバーした時のみ」表示に変更する。
+- Changes:
+  - `static/styles.css` の右上パネル表示トリガーを `#main-image/#empty-message` hover から `.overlay-panel-left:hover` に変更した。
+  - `npm run build:bundle` 実行で `static/home-app/` の成果物を更新した。
+- Decisions:
+  - Decision: 右上パネルの可視化条件を左下パネル hover の sibling selector に統一。
+  - Rationale: ユーザー指定どおり、左下パネル操作時のみ補助情報を表示するため。
+  - Impact: 閲覧画面の CSS 可視化挙動と配信済みフロント成果物。
+- Open Questions:
+  - browser tool では依然としてホーム画面要素の selector 取得が timeout し、スクリーンショット取得は未完了。
+- Verification:
+  - `npm run build:bundle` : 成功
+  - `python app.py tests/resources/image_root` : 成功
+  - `curl -s http://localhost:8000/api/subdirectories` : 成功
+  - `run_playwright_script` : 失敗（`a.subdir-card` selector timeout）
