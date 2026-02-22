@@ -103,6 +103,13 @@
   - 画面変更あり: ブラウザで表示確認（必要ならスクリーンショット）
   - API/ロジック変更あり: 再現手順と期待値を明文化
   - 文書変更のみ: 記載内容の整合性（コマンド・パス・URL）
+- E2E（`tests/e2e`）を実行する場合は、**必ず事前に**次を実行してから `pytest` を実行する。
+  ```sh
+  python -m pip install -r requirements-dev.txt
+  python -m playwright install --with-deps chromium
+  ```
+  - その後に実行: `pytest tests/e2e -q`
+  - 依存導入前に E2E を実行して skip / fail した場合は、導入後に再実行した結果を検証ログへ残す。
 - テスト失敗時は「失敗そのもの」よりも「再現条件」と「切り分け状況」を記録する。
 
 ## 9. 変更禁止・注意事項
