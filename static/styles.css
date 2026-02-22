@@ -54,6 +54,32 @@ body {
   text-decoration: underline;
 }
 
+.overlay-action-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.home-icon-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #465264;
+  border-radius: 6px;
+  background: #252c37;
+  color: #88c0d0;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.home-icon-link:hover {
+  border-color: #88c0d0;
+  background: #2a3340;
+  text-decoration: none;
+}
+
 .overlay-panel {
   position: absolute;
   max-width: min(70vw, 420px);
@@ -102,8 +128,6 @@ body {
 }
 
 .image-delete-button {
-  margin-top: 4px;
-  align-self: flex-start;
   border: 1px solid #bf616a;
   border-radius: 6px;
   background: #5b2b33;

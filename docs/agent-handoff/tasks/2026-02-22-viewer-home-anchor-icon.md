@@ -1,0 +1,18 @@
+## Context Handoff
+- Goal:
+  - 閲覧画面の「ディレクトリ一覧へ戻る」アンカーをアイコン化し、削除ボタンの隣へ配置する。
+- Changes:
+  - `frontend/src/features/viewer/pages/ViewerPage.tsx` で戻りアンカーをテキストからアイコン（⮌）に変更し、`overlay-action-row` 内で削除ボタンと横並びに配置。
+  - `static/styles.css` に `overlay-action-row` / `home-icon-link` スタイルを追加し、削除ボタンの単独配置向けスタイル（`margin-top`, `align-self`）を除去。
+  - `npm run build:bundle` を実行し、`static/home-app/assets/*` を再生成。
+- Decisions:
+  - Decision: 戻る操作はリンクのまま維持しつつ視覚表現だけをアイコン化する。
+  - Rationale: 既存の遷移ロジック（ホームへのナビゲーション）を崩さず、要求されたUI変更を最小差分で実現するため。
+  - Impact: 閲覧画面左下オーバーレイの操作導線（戻る・削除）にのみ影響。
+- Open Questions:
+  - アイコン文字（⮌）の最終デザイン適合性は、実画面確認で必要に応じて調整余地あり。
+- Verification:
+  - `python app.py tests/resources/image_root` + `curl http://localhost:8000/` / `curl http://localhost:8000/api/subdirectories` で起動・API応答200を確認。
+  - `cd frontend && npm ci && npm run build:bundle` 成功。
+  - `python -m pip install -r requirements-dev.txt` 実施後、`pytest -q` は最終的に 7 passed。
+  - browser tool によるスクリーンショット取得を試行したが、実行基盤のタイムアウトで取得不可。
