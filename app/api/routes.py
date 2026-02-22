@@ -14,6 +14,7 @@ from app.models.schemas import (
     RenameDirectoryResponse,
     SubdirectoriesResponse,
 )
+from app.models.types import DirectoryId, FileId
 from app.services.image_service import (
     ConflictError,
     ImageService,
@@ -32,14 +33,14 @@ def create_api_router(service: ImageService) -> APIRouter:
         return SubdirectoriesResponse(subdirectories=service.list_subdirectories())
 
     @router.get("/images/{directory_id}", response_model=ImagesResponse)
-    def get_images(directory_id: str) -> ImagesResponse:
+    def get_images(directory_id: DirectoryId) -> ImagesResponse:
         try:
             directory, images = service.list_images(directory_id)
         except ResourceNotFoundError as exc:
             raise HTTPException(status_code=HTTPStatus.NOT_FOUND) from exc
         return ImagesResponse(directory_id=directory_id, subdirectory=directory.name, images=images)
 
-    def _build_image_response(file_id: str, request: Request, include_body: bool) -> Response:
+    def _build_image_response(file_id: FileId, request: Request, include_body: bool) -> Response:
         try:
             file_path = service.resolve_image(file_id)
         except ResourceNotFoundError as exc:
@@ -82,15 +83,15 @@ def create_api_router(service: ImageService) -> APIRouter:
         return FileResponse(path=file_path, media_type=content_type, headers=headers)
 
     @router.get("/image/{file_id}")
-    def get_image(file_id: str, request: Request) -> Response:
+    def get_image(file_id: FileId, request: Request) -> Response:
         return _build_image_response(file_id=file_id, request=request, include_body=True)
 
     @router.head("/image/{file_id}")
-    def head_image(file_id: str, request: Request) -> Response:
+    def head_image(file_id: FileId, request: Request) -> Response:
         return _build_image_response(file_id=file_id, request=request, include_body=False)
 
     @router.delete("/image/{file_id}", response_model=DeleteImageResponse)
-    def delete_image(file_id: str) -> DeleteImageResponse:
+    def delete_image(file_id: FileId) -> DeleteImageResponse:
         try:
             deleted_file = service.delete_image(file_id)
         except ResourceNotFoundError as exc:
@@ -103,7 +104,7 @@ def create_api_router(service: ImageService) -> APIRouter:
         return DeleteImageResponse(deleted=deleted_file.name, file_id=file_id)
 
     @router.put("/subdirectories/{directory_id}", response_model=RenameDirectoryResponse)
-    def rename_subdirectory(directory_id: str, payload: RenameDirectoryRequest) -> RenameDirectoryResponse:
+    def rename_subdirectory(directory_id: DirectoryId, payload: RenameDirectoryRequest) -> RenameDirectoryResponse:
         try:
             new_directory_id, renamed_from, renamed_to = service.rename_subdirectory(directory_id, payload.new_name)
         except ResourceNotFoundError as exc:

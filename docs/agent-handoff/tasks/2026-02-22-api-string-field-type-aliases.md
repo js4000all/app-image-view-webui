@@ -1,0 +1,15 @@
+## Context Handoff
+- Goal: APIモデルで意味の異なる文字列を型エイリアスで明確化し、`deleted: str` を含むレスポンス項目の意図を読みやすくする。
+- Changes:
+  - `app/models/types.py` を追加し、`FileId` / `DirectoryId` / `FileName` / `DirectoryName` を定義。
+  - `app/models/schemas.py` の文字列フィールドを上記型へ置換（`deleted` は `FileName` へ変更）。
+  - `app/api/routes.py` と `app/services/image_service.py` の引数・戻り値注釈を追従更新。
+- Decisions:
+  - Decision: `FileName` / `DirectoryName` は `Annotated[str, StringConstraints(...)]` を採用。
+  - Rationale: 文字列の意味づけと同時に、パス区切り文字を含む不正値をPydanticで早期検知できるため。
+  - Impact: APIリクエスト/レスポンスモデルとサービス層の型可読性が向上し、レビュー時の誤読を減らせる。
+- Open Questions:
+  - `file_id` / `directory_id` を `NewType` にするかは未対応（FastAPI パスパラメータとの整合を見ながら段階的に検討可能）。
+- Verification:
+  - `python app.py tests/resources/image_root >/tmp/app.log 2>&1 & pid=$!; sleep 2; curl -s -o /tmp/subdirs.json -w '%{http_code}' http://localhost:8000/api/subdirectories; code=$?; kill $pid; wait $pid 2>/dev/null; echo " curl_exit=$code"; cat /tmp/subdirs.json; echo; tail -n 5 /tmp/app.log` -> 成功（HTTP 200）。
+  - `pytest -q tests/api/test_api_contract.py` -> 失敗（`httpx` 未導入の環境要因）。
