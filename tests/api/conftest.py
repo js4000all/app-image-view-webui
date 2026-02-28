@@ -86,11 +86,14 @@ def api_client_factory(free_tcp_port_factory):
 
 @pytest.fixture
 def copied_prompt_image_root(tmp_path: Path) -> Path:
-    source = Path("tests/resources/images_with_prompt")
+    source = Path("tests/resources/images_with_prompt/dir1")
     destination = tmp_path / "prompt_root"
     destination.mkdir()
     shutil.copy2(source / "00009.png", destination / "00009.png")
+    shutil.copy2(source / "00025.avif", destination / "00025.avif")
     nested = destination / "nested"
     nested.mkdir()
     shutil.copy2(source / "00010.avif", nested / "00010.avif")
+    shutil.copy2(source / "00027.avif", nested / "00027.avif")
+    shutil.copy2(source / "00029.avif", nested / "00029.avif")
     return destination
