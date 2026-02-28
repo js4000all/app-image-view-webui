@@ -100,3 +100,20 @@
   - `python -m pip install -r requirements-dev.txt` : 成功
   - `PYTHONPATH=. pytest tests/services/test_tag_index_service.py -q` : 成功（7 passed）
   - `PYTHONPATH=. pytest tests/api/test_api_contract.py -q` : 成功（8 passed）
+
+## Context Handoff
+- Goal: refresh開始直後の待ち時間に、母数未確定の進捗を即時表示する。
+- Changes:
+  - `app/services/tag_index_service.py` に `_list_images_recursive_with_progress()` を追加し、`list_images_recursive` 実行中に別スレッドで `[tag-index] refresh list`（total未指定）を更新する実装を追加。
+  - `refresh_index` は上記ヘルパー経由でファイル一覧を取得するよう変更し、その後の `scan` / `apply` 2段階バーは維持。
+  - `tests/services/test_tag_index_service.py` の進捗テストを更新し、`refresh list` / `refresh scan` / `refresh apply` の出力を検証。
+- Decisions:
+  - Decision: ファイル列挙の重い区間は indeterminate バーを別スレッドで回して可視化する。
+  - Rationale: 列挙結果（母数）が確定する前に進捗表示を出し、体感上の無応答時間をなくすため。
+  - Impact: 大規模ディレクトリでも refresh 実行直後に進捗表示が始まる。
+- Open Questions:
+  - `build_index` 側にも同様の indeterminate 列挙バーを付与するか。
+- Verification:
+  - `PYTHONPATH=. pytest tests/services/test_tag_index_service.py -q` : 成功（7 passed）
+  - `python -m pip install -r requirements-dev.txt` : 成功
+  - `PYTHONPATH=. pytest tests/api/test_api_contract.py -q` : 成功（8 passed）

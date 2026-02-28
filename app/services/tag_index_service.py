@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 import sys
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -144,9 +145,27 @@ class TagIndexService:
         self.file_metadata = file_metadata
         return len(file_metadata)
 
+
+    def _list_images_recursive_with_progress(self, target_base: Path) -> list[Path]:
+        done = threading.Event()
+
+        def _tick_listing_progress() -> None:
+            progress = tqdm(desc="[tag-index] refresh list", unit="file", file=sys.stdout)
+            while not done.wait(0.1):
+                progress.update(1)
+            progress.close()
+
+        ticker = threading.Thread(target=_tick_listing_progress, daemon=True)
+        ticker.start()
+        try:
+            return self.repository.list_images_recursive(target_base)
+        finally:
+            done.set()
+            ticker.join()
+
     def refresh_index(self) -> None:
         target_base = self.base_dir.resolve()
-        image_paths = self.repository.list_images_recursive(target_base)
+        image_paths = self._list_images_recursive_with_progress(target_base)
 
         current_files: dict[str, tuple[Path, FileFingerprint]] = {}
         scan_progress = tqdm(image_paths, desc="[tag-index] refresh scan", unit="file", file=sys.stdout)

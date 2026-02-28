@@ -122,6 +122,7 @@ def test_refresh_index_outputs_scan_and_apply_progress(tmp_path: Path, capsys, m
     service.refresh_index()
     captured = capsys.readouterr()
 
+    assert "[tag-index] refresh list" in captured.out
     assert "[tag-index] refresh scan" in captured.out
     assert "[tag-index] refresh apply" in captured.out
 
