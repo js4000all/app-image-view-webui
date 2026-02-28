@@ -167,7 +167,7 @@ def test_refresh_index_only_indexes_added_files(tmp_path: Path, monkeypatch):
     assert len(service.query(["tag-002"], "and")) == 1
 
 
-def test_refresh_index_only_reextracts_modified_files(tmp_path: Path, monkeypatch):
+def test_refresh_index_skips_reextract_when_directory_mtime_unchanged(tmp_path: Path, monkeypatch):
     base_dir = tmp_path / "images"
     base_dir.mkdir()
     image_file = base_dir / "001.png"
@@ -199,9 +199,9 @@ def test_refresh_index_only_reextracts_modified_files(tmp_path: Path, monkeypatc
 
     service.refresh_index()
 
-    assert call_count["001.png"] == extracted_before["001.png"] + 1
-    assert service.query(["tag-v1"], "and") == []
-    assert len(service.query(["tag-v2"], "and")) == 1
+    assert call_count["001.png"] == extracted_before["001.png"]
+    assert len(service.query(["tag-v1"], "and")) == 1
+    assert service.query(["tag-v2"], "and") == []
 
 
 def test_refresh_index_removes_deleted_files_from_results(tmp_path: Path, monkeypatch):
@@ -288,3 +288,42 @@ def test_build_index_rejects_invalid_max_workers(tmp_path: Path):
             db_path=tmp_path / "tag_index.sqlite3",
             max_workers=0,
         )
+
+
+def test_refresh_index_reextracts_only_changed_directories(tmp_path: Path, monkeypatch):
+    base_dir = tmp_path / "images"
+    dir_a = base_dir / "a"
+    dir_b = base_dir / "b"
+    dir_a.mkdir(parents=True)
+    dir_b.mkdir(parents=True)
+
+    (dir_a / "001.png").write_bytes(b"a1")
+    (dir_b / "101.png").write_bytes(b"b1")
+
+    extracted: list[str] = []
+
+    def fake_extract(image_path: Path):
+        extracted.append(image_path.name)
+
+        class _Result:
+            positive = [f"tag-{image_path.stem}"]
+
+        return _Result()
+
+    monkeypatch.setattr("app.services.tag_index_service.extract_generation_prompts", fake_extract)
+
+    service = TagIndexService(
+        base_dir=base_dir,
+        repository=FileSystemRepository(),
+        registry=ResourceRegistry(),
+        db_path=tmp_path / "tag_index.sqlite3",
+    )
+    service.build_index(base_dir)
+
+    extracted.clear()
+    (dir_a / "002.png").write_bytes(b"a2")
+
+    service.refresh_index()
+
+    assert extracted == ["002.png"]
+    assert len(service.query(["tag-101"], "and")) == 1

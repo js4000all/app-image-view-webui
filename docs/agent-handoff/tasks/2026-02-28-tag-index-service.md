@@ -117,3 +117,54 @@
   - `PYTHONPATH=. pytest tests/services/test_tag_index_service.py -q` : 成功（7 passed）
   - `python -m pip install -r requirements-dev.txt` : 成功
   - `PYTHONPATH=. pytest tests/api/test_api_contract.py -q` : 成功（8 passed）
+
+## Context Handoff
+- Goal: タグインデクスの refresh で、更新があったディレクトリのみを対象に差分処理する。
+- Changes:
+  - `app/services/tag_index_service.py` に `indexed_directories(path, mtime_ns)` テーブルと `IndexedDirectory` を追加し、`build_index` 時に全ディレクトリの更新時刻を保存するようにした。
+  - `refresh_index` は `indexed_directories` と現在のディレクトリmtimeを比較し、変更ディレクトリのみ `list_images` で走査する方式へ変更。削除ディレクトリ配下の既存インデクス行も削除対象に含めるようにした。
+  - refresh完了時に `indexed_directories` を全更新し、次回 refresh の比較基準を再保存するようにした。
+  - `tests/services/test_tag_index_service.py` を更新し、ディレクトリmtimeが変わらない更新では再抽出しないこと、および変更ディレクトリのみ再抽出されることを検証するテストを追加した。
+- Decisions:
+  - Decision: refreshの対象絞り込みは「ディレクトリmtimeの差分」を一次判定とし、変更ディレクトリ配下のみファイル差分（added/modified/deleted）を評価する。
+  - Rationale: `extract_generation_prompts` の再実行コストを減らし、変更が局所的なケースで refresh を高速化するため。
+  - Impact: 変更のないディレクトリ配下ファイルは再抽出されず、refreshの処理量が削減される。
+- Open Questions:
+  - ディレクトリmtimeが変わらないファイル内容更新（上書き）を追跡する必要がある場合、別途ファイル単位の監視戦略が必要。
+- Verification:
+  - `pytest tests/services/test_tag_index_service.py -q` : 成功（10 passed）
+  - `pytest tests/services/test_tag_index_service.py tests/api/test_api_contract.py::test_tag_index_query_and_refresh -q` : 失敗（`httpx` 未導入のため `tests/api/conftest.py` 読み込み時に `ModuleNotFoundError`）
+
+## Context Handoff
+- Goal: 前回PRで不足していたテスト実行手順（依存導入）を再発防止として明文化し、pytestを完走させる。
+- Changes:
+  - `docs/agent-handoff/README.md` に「pytest実行前の依存導入チェック」節を追加し、`requirements-dev.txt` と Playwright Chromium 導入を明示した。
+  - 依存導入後に `pytest -q` を再実行し、全テストが通ることを確認した。
+- Decisions:
+  - Decision: 手順はタスク個別ログだけでなく、共通運用ドキュメントにも残す。
+  - Rationale: 同種の手順抜け（pip install省略）を次回以降の作業でも防止するため。
+  - Impact: pytest実行時の初期失敗（`httpx` 未導入や Playwright browser 未導入）が再発しにくくなる。
+- Open Questions:
+  - なし。
+- Verification:
+  - `python -m pip install -r requirements-dev.txt` : 成功
+  - `pytest -q` : 失敗（初回。Playwright browser executable未導入）
+  - `python -m playwright install --with-deps chromium` : 成功
+  - `pytest -q` : 成功（24 passed）
+
+## Context Handoff
+- Goal: refresh進捗表示のうち、scan工程をディレクトリ単位ではなくファイル単位で表示する。
+- Changes:
+  - `app/services/tag_index_service.py` の `refresh_index` で、`changed_directories` から対象ファイル一覧（`changed_directory_files`）を先に収集するよう変更。
+  - `refresh scan` の `tqdm` は `changed_directory_files` を対象にし、`unit="file"` でファイル数進捗を表示するようにした。
+  - `refresh list` は従来どおりディレクトリ列挙の indeterminate 表示（`unit="dir"`）を維持。
+- Decisions:
+  - Decision: list工程はディレクトリ、scan工程はファイルを単位に分離したまま表示する。
+  - Rationale: 体感時間の長い scan に対して、実作業量（ファイル数）に沿った進捗を出すため。
+  - Impact: scanバーがディレクトリ数ではなく対象画像ファイル総数ベースで進行する。
+- Open Questions:
+  - なし。
+- Verification:
+  - `python -m pip install -r requirements-dev.txt` : 成功
+  - `python -m playwright install --with-deps chromium` : 成功
+  - `pytest -q` : 成功（24 passed）

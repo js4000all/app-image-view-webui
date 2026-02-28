@@ -36,6 +36,12 @@ class IndexedRecord:
     fingerprint: FileFingerprint
 
 
+@dataclass(frozen=True)
+class IndexedDirectory:
+    path: str
+    mtime_ns: int
+
+
 class TagIndexService:
     def __init__(
         self,
@@ -84,12 +90,18 @@ class TagIndexService:
                 );
 
                 CREATE INDEX IF NOT EXISTS idx_file_tags_file_id ON file_tags(file_id);
+
+                CREATE TABLE IF NOT EXISTS indexed_directories (
+                    path TEXT PRIMARY KEY,
+                    mtime_ns INTEGER NOT NULL
+                );
                 """
             )
 
     def build_index(self, base_dir: Path | None = None) -> None:
         target_base = (base_dir or self.base_dir).resolve()
         image_paths = self.repository.list_images_recursive(target_base)
+        directory_rows = self._collect_directory_rows(target_base)
 
         tag_to_file_ids: dict[str, set[FileId]] = {}
         file_id_to_tags: dict[FileId, list[str]] = {}
@@ -103,6 +115,7 @@ class TagIndexService:
         with self._connect() as conn:
             conn.execute("DELETE FROM file_tags")
             conn.execute("DELETE FROM indexed_files")
+            conn.execute("DELETE FROM indexed_directories")
 
             progress = tqdm(total=len(image_paths), desc="[tag-index] build", unit="file", file=sys.stdout)
 
@@ -153,6 +166,10 @@ class TagIndexService:
                 )
             if tag_rows:
                 conn.executemany("INSERT INTO file_tags(tag, file_id) VALUES (?, ?)", tag_rows)
+            conn.executemany(
+                "INSERT INTO indexed_directories(path, mtime_ns) VALUES (?, ?)",
+                directory_rows,
+            )
             progress.close()
 
             if failed_paths:
@@ -193,11 +210,11 @@ class TagIndexService:
         return len(file_metadata)
 
 
-    def _list_images_recursive_with_progress(self, target_base: Path) -> list[Path]:
+    def _collect_directory_rows_with_progress(self, target_base: Path) -> list[tuple[str, int]]:
         done = threading.Event()
 
         def _tick_listing_progress() -> None:
-            progress = tqdm(desc="[tag-index] refresh list", unit="file", file=sys.stdout)
+            progress = tqdm(desc="[tag-index] refresh list", unit="dir", file=sys.stdout)
             while not done.wait(0.1):
                 progress.update(1)
             progress.close()
@@ -205,25 +222,23 @@ class TagIndexService:
         ticker = threading.Thread(target=_tick_listing_progress, daemon=True)
         ticker.start()
         try:
-            return self.repository.list_images_recursive(target_base)
+            return self._collect_directory_rows(target_base)
         finally:
             done.set()
             ticker.join()
 
+    def _collect_directory_rows(self, target_base: Path) -> list[tuple[str, int]]:
+        directories = [target_base, *(entry for entry in target_base.rglob("*") if entry.is_dir())]
+        rows: list[tuple[str, int]] = []
+        for directory in sorted(directories):
+            stat_result = directory.stat()
+            rows.append((str(directory.resolve()), stat_result.st_mtime_ns))
+        return rows
+
     def refresh_index(self) -> None:
         target_base = self.base_dir.resolve()
-        image_paths = self._list_images_recursive_with_progress(target_base)
-
-        current_files: dict[str, tuple[Path, FileFingerprint]] = {}
-        scan_progress = tqdm(image_paths, desc="[tag-index] refresh scan", unit="file", file=sys.stdout)
-        for image_path in scan_progress:
-            resolved_path = image_path.resolve()
-            stat_result = resolved_path.stat()
-            current_files[str(resolved_path)] = (
-                resolved_path,
-                FileFingerprint(mtime_ns=stat_result.st_mtime_ns, size=stat_result.st_size),
-            )
-        scan_progress.close()
+        directory_rows = self._collect_directory_rows_with_progress(target_base)
+        current_directories = {path: mtime_ns for path, mtime_ns in directory_rows}
 
         with self._connect() as conn:
             db_files: dict[str, IndexedRecord] = {}
@@ -234,13 +249,58 @@ class TagIndexService:
                     fingerprint=FileFingerprint(mtime_ns=mtime_ns, size=size),
                 )
 
-            added_paths = sorted(path for path in current_files if path not in db_files)
-            deleted_paths = sorted(path for path in db_files if path not in current_files)
+            db_directories: dict[str, IndexedDirectory] = {}
+            rows = conn.execute("SELECT path, mtime_ns FROM indexed_directories")
+            for path, mtime_ns in rows:
+                db_directories[path] = IndexedDirectory(path=path, mtime_ns=mtime_ns)
+
+            changed_directories = sorted(
+                path
+                for path, mtime_ns in current_directories.items()
+                if path not in db_directories or db_directories[path].mtime_ns != mtime_ns
+            )
+            deleted_directories = sorted(path for path in db_directories if path not in current_directories)
+
+            changed_directory_files: list[Path] = []
+            for directory_path in changed_directories:
+                directory = Path(directory_path)
+                changed_directory_files.extend(self.repository.list_images(directory))
+
+            current_files: dict[str, tuple[Path, FileFingerprint]] = {}
+            scan_progress = tqdm(
+                changed_directory_files,
+                desc="[tag-index] refresh scan",
+                unit="file",
+                file=sys.stdout,
+            )
+            for image_path in scan_progress:
+                resolved_path = image_path.resolve()
+                stat_result = resolved_path.stat()
+                current_files[str(resolved_path)] = (
+                    resolved_path,
+                    FileFingerprint(mtime_ns=stat_result.st_mtime_ns, size=stat_result.st_size),
+                )
+            scan_progress.close()
+
+            db_files_in_changed_dirs = {
+                path: record
+                for path, record in db_files.items()
+                if str(Path(path).parent) in changed_directories
+            }
+
+            added_paths = sorted(path for path in current_files if path not in db_files_in_changed_dirs)
             modified_paths = sorted(
                 path
                 for path in current_files
-                if path in db_files and current_files[path][1] != db_files[path].fingerprint
+                if path in db_files_in_changed_dirs and current_files[path][1] != db_files_in_changed_dirs[path].fingerprint
             )
+            deleted_paths = sorted(path for path in db_files_in_changed_dirs if path not in current_files)
+
+            for directory_path in deleted_directories:
+                deleted_paths.extend(
+                    path for path in db_files if path == directory_path or path.startswith(f"{directory_path}{os.sep}")
+                )
+            deleted_paths = sorted(set(deleted_paths))
 
             reindex_paths = added_paths + modified_paths
             apply_total = len(deleted_paths) + len(reindex_paths)
@@ -273,6 +333,12 @@ class TagIndexService:
                 )
                 for tag in positive_tags:
                     conn.execute("INSERT INTO file_tags(tag, file_id) VALUES (?, ?)", (tag, file_id))
+
+            conn.execute("DELETE FROM indexed_directories")
+            conn.executemany(
+                "INSERT INTO indexed_directories(path, mtime_ns) VALUES (?, ?)",
+                directory_rows,
+            )
             apply_progress.close()
 
         self.load_index_from_db()
