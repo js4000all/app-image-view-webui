@@ -15,6 +15,9 @@ def test_build_index_and_query_with_and_or_modes(tmp_path: Path):
     nested_dir.mkdir(parents=True)
     shutil.copy2(source / "00009.png", nested_dir / "00009.png")
     shutil.copy2(source / "00010.avif", base_dir / "00010.avif")
+    shutil.copy2(source / "00025.avif", base_dir / "00025.avif")
+    shutil.copy2(source / "00027.avif", nested_dir / "00027.avif")
+    shutil.copy2(source / "00029.avif", base_dir / "00029.avif")
 
     service = TagIndexService(
         base_dir=base_dir,
@@ -26,13 +29,17 @@ def test_build_index_and_query_with_and_or_modes(tmp_path: Path):
     service.build_index(base_dir)
 
     assert "old male" in service.tag_to_file_ids
-    assert len(service.file_id_to_tags) == 2
+    assert "mountain" in service.tag_to_file_ids
+    assert "knight" in service.tag_to_file_ids
+    assert len(service.file_id_to_tags) == 5
     assert len(service.query(["old male", "best quality"], "and")) == 2
+    assert len(service.query(["solo"], "and")) == 2
+    assert len(service.query(["knight", "masterpiece"], "and")) == 1
     assert len(service.query(["holding cat", "unknown"], "or")) == 2
     assert service.query(["unknown"], "and") == []
 
     service.refresh_index()
-    assert len(service.file_metadata) == 2
+    assert len(service.file_metadata) == 5
 
 
 

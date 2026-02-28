@@ -149,13 +149,13 @@ def test_tag_index_query_and_refresh(api_client_factory, copied_prompt_image_roo
     refresh_response = client.post("/api/tag-index/refresh")
     assert refresh_response.status_code == 200
     refreshed = refresh_response.json()
-    assert refreshed["indexed_files"] == 2
-    assert refreshed["indexed_tags"] >= 4
+    assert refreshed["indexed_files"] == 5
+    assert refreshed["indexed_tags"] >= 8
 
 
 def test_tag_index_query_works_on_startup_by_loading_db_without_rebuild(tmp_path, monkeypatch):
     static_dir = Path(__file__).resolve().parents[2] / "static"
-    source = Path("tests/resources/images_with_prompt")
+    source = Path("tests/resources/images_with_prompt/dir1")
     indexed_dir = tmp_path / "indexed"
     indexed_dir.mkdir()
     (indexed_dir / "nested").mkdir()
