@@ -1,0 +1,22 @@
+## Context Handoff
+- Goal: `TagIndexService.build_index()` の prompt 抽出を並列化し、SQLite 書き込みはメインスレッドで順次バッチ反映する。
+- Changes:
+  - `app/services/tag_index_service.py`
+    - `build_index()` で `ThreadPoolExecutor` + `as_completed` を使って `extract_generation_prompts(image_path)` を並列実行。
+    - 完了件数ベースで `tqdm` を更新するよう `total=len(image_paths)` + `progress.update(1)` に変更。
+    - ワーカー失敗時は全体停止せず、失敗パスを集約して最後にログ出力。
+    - DB 反映はメインスレッドで `executemany` バッチ挿入（indexed_files / file_tags）に変更。
+    - `max_workers` 設定値を `__init__` に追加。デフォルトは `min(os.cpu_count() or 1, 8)`。
+  - `tests/services/test_tag_index_service.py`
+    - 失敗ファイルをスキップしログ出力されることを検証するテストを追加。
+    - `max_workers=0` を拒否するバリデーションテストを追加。
+- Decisions:
+  - Decision: まず `ThreadPoolExecutor` を採用。
+  - Rationale: 実装難易度を優先しつつ、I/O + 画像メタ抽出の並列化で改善効果を狙うため。
+  - Impact: `build_index()` の処理順は完了順（非決定）になるが、機能要件（索引結果）には影響しない。
+- Open Questions:
+  - CPU バウンドが支配的なケースでは `ProcessPoolExecutor` への切替評価が必要。
+  - 大規模データでの最適バッチサイズ（現在 200）は未計測。
+- Verification:
+  - `PYTHONPATH=. pytest tests/services/test_tag_index_service.py -q` -> 成功（9 passed）。
+  - `PYTHONPATH=. pytest tests/api/test_api_contract.py::test_tag_index_query_and_refresh -q` -> 失敗（`httpx` 未導入の環境依存）。
