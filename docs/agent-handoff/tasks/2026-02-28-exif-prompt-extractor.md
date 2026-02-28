@@ -1,0 +1,17 @@
+## Context Handoff
+- Goal:
+  - EXIF UserComment や PNG parameters から、画像生成時プロンプト（positive/negative）を抽出できるユーティリティを追加する。
+- Changes:
+  - `app/services/prompt_extractor.py` を追加し、以下を実装。
+    - PNG の `parameters`（tEXt/iTXt/zTXt）抽出
+    - EXIF UserComment（`ASCII` / `UNICODE` / `JIS`）抽出
+    - Stable Diffusion 形式文字列を positive/negative の配列へ分解
+  - `tests/services/test_prompt_extractor.py` を追加し、`tests/resources/images_with_prompt/00009.png` と `00010.avif` で抽出値を検証。
+- Decisions:
+  - Decision: AVIF は外部依存を増やさず、バイト列から `Exif\x00\x00` を探索して TIFF IFD を直接読む方式を採用。
+  - Rationale: 既存依存（FastAPIのみ）を維持し、対象サンプルの抽出を最短で実現するため。
+  - Impact: `app/services` 内にメタデータ抽出ロジックが追加され、将来API化する際に再利用可能。
+- Open Questions:
+  - 一部モデルの複雑なプロンプト構文（カンマ入りLoRA指定等）に対する厳密なトークン分解は今後調整余地あり。
+- Verification:
+  - `PYTHONPATH=. pytest tests/services/test_prompt_extractor.py -q` -> 成功（2 passed）
