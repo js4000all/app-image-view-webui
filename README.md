@@ -68,6 +68,31 @@ python app.py /path/to/image-dir --host 0.0.0.0 --port 8000 --static-dir ./stati
 python app.py tests/resources/image_root
 ```
 
+## メタデータ取得テスト用ディレクトリ
+画像ファイルに含まれるメタデータに関連するテストを行う場合は、`tests/resources/images_with_prompt`内の画像を使ってください。
+各画像に含まれるメタデータは次のとおりです。
+
+- 00009.png
+  - Positive prompt: "old male", "holding cat", "masterpiece", "best quality"
+  - Negative prompt: "worst quality", "bad quality", "bad anatomy", "bad hands"
+  - Model: "waiSHUFFLENOOB_vPred04_2335821"
+- 00010.avif
+  - Positive prompt: "old male", "holding cat", "masterpiece", "best quality"
+  - Negative prompt: "worst quality", "bad quality", "bad anatomy", "bad hands"
+  - Model: "waiSHUFFLENOOB_vPred04_2335821"
+- 00025.avif
+  - Positive prompt: "mountain", "scenery", "masterpiece", "best quality"
+  - Negative prompt: なし
+  - Model: "waiSHUFFLENOOB_vPred04_2335821"
+- 00027.avif
+  - Positive prompt: "knight", "solo", "masterpiece"
+  - Negative prompt: "bad anatomy", "bad hands"
+  - Model: "novaAnimeXL_ilV150_2442274"
+- 00029.avif
+  - Positive prompt: "old male", "solo"
+  - Negative prompt: "worst quality"
+  - Model: "novaAnimeXL_ilV150_2442274"
+
 ## Codex環境でスクリーンショットが `Not Found` になる場合の回避策
 Codex の browser tool（Playwright 実行環境）では、`localhost` の解決先が
 シェルで `python app.py ...` を起動した環境と一致しない場合があります。
