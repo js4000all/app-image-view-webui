@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import sqlite3
 from pathlib import Path
 
 import uvicorn
@@ -23,7 +24,22 @@ def create_app(settings: AppSettings) -> FastAPI:
     registry = ResourceRegistry()
     service = ImageService(base_dir=settings.base_dir, repository=repository, registry=registry)
     tag_index_service = TagIndexService(base_dir=settings.base_dir, repository=repository, registry=registry)
-    tag_index_service.build_index(settings.base_dir)
+
+    loaded_count = 0
+    load_failed = False
+    try:
+        loaded_count = tag_index_service.load_index_from_db()
+    except sqlite3.Error:
+        load_failed = True
+
+    fallback_built = load_failed or loaded_count == 0
+    if fallback_built:
+        tag_index_service.build_index(settings.base_dir)
+
+    print(
+        f"[tag-index] startup load_count={loaded_count} "
+        f"fallback_build={fallback_built}"
+    )
 
     app.include_router(create_api_router(service, tag_index_service))
 

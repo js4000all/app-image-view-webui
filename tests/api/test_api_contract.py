@@ -1,5 +1,15 @@
 from __future__ import annotations
 
+from pathlib import Path
+
+from fastapi.testclient import TestClient
+
+from app.config import AppSettings
+from app.main import create_app
+from app.repositories.filesystem import FileSystemRepository
+from app.services.image_service import ResourceRegistry
+from app.services.tag_index_service import TagIndexService
+
 
 def _first_directory_id(client):
     response = client.get("/api/subdirectories")
@@ -141,3 +151,37 @@ def test_tag_index_query_and_refresh(api_client_factory, copied_prompt_image_roo
     refreshed = refresh_response.json()
     assert refreshed["indexed_files"] == 2
     assert refreshed["indexed_tags"] >= 4
+
+
+def test_tag_index_query_works_on_startup_by_loading_db_without_rebuild(tmp_path, monkeypatch):
+    static_dir = Path(__file__).resolve().parents[2] / "static"
+    source = Path("tests/resources/images_with_prompt")
+    indexed_dir = tmp_path / "indexed"
+    indexed_dir.mkdir()
+    (indexed_dir / "nested").mkdir()
+    (indexed_dir / "00009.png").write_bytes((source / "00009.png").read_bytes())
+    (indexed_dir / "nested" / "00010.avif").write_bytes((source / "00010.avif").read_bytes())
+
+    builder = TagIndexService(
+        base_dir=indexed_dir,
+        repository=FileSystemRepository(),
+        registry=ResourceRegistry(),
+        db_path=tmp_path / "tag_index.sqlite3",
+    )
+    builder.build_index(indexed_dir)
+
+    empty_dir = tmp_path / "empty"
+    empty_dir.mkdir()
+    monkeypatch.chdir(tmp_path)
+
+    app = create_app(AppSettings.from_paths(base_dir=empty_dir, static_dir=static_dir))
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/tag-index/query",
+            json={"tags": ["old male", "best quality"], "mode": "and"},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 2
+    assert len(payload["file_ids"]) == 2

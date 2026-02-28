@@ -48,3 +48,19 @@
 - Verification:
   - `PYTHONPATH=. pytest tests/services/test_tag_index_service.py tests/api/test_api_contract.py -q` : 成功
   - `PYTHONPATH=. pytest -q` : 成功
+
+## Context Handoff
+- Goal: 起動時にDBからタグインデクスを復元し、空DBまたはロード失敗時のみフルビルドへフォールバックする。
+- Changes:
+  - `app/services/tag_index_service.py` に `load_index_from_db()` を追加し、`indexed_files`/`file_tags` から `tag_to_file_ids`・`file_id_to_tags`・`file_metadata` を再構築してロード件数を返すようにした。
+  - `app/main.py` の `create_app()` を変更し、起動時はDBロード→必要時のみ `build_index()` の順で実行、`load_count` と `fallback_build` を1行ログ出力するようにした。
+  - `tests/services/test_tag_index_service.py` に、DB保存後に別インスタンスでロード復元できるテストを追加した。
+  - `tests/api/test_api_contract.py` に、事前作成DBを起動時にロードして検索APIが機能する契約テスト（空ディレクトリ起動でフルビルド非前提）を追加した。
+- Decisions:
+  - Decision: DBロード結果の判定は「ロード件数（int）」で扱い、0件は成功扱いにしたうえで起動制御でフォールバック判定する。
+  - Rationale: 空DBをエラーと区別し、起動時の分岐を単純化するため。
+  - Impact: 既存DBがある環境では起動時の不要な全件再構築を回避できる。
+- Open Questions:
+  - DB破損時の詳細ログ（例: 例外種別）を追加で出すかどうか。
+- Verification:
+  - `PYTHONPATH=. pytest tests/services/test_tag_index_service.py tests/api/test_api_contract.py -q` : 成功
