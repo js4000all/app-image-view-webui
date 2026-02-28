@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import os
 import sqlite3
 import sys
 import threading
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -42,11 +44,15 @@ class TagIndexService:
         repository: FileSystemRepository,
         registry: ResourceRegistry,
         db_path: Path = Path("tag_index.sqlite3"),
+        max_workers: int | None = None,
     ) -> None:
         self.base_dir = base_dir
         self.repository = repository
         self.registry = registry
         self.db_path = db_path
+        self.max_workers = max_workers if max_workers is not None else min(os.cpu_count() or 1, 8)
+        if self.max_workers < 1:
+            raise ValueError("max_workers must be greater than 0")
 
         self.tag_to_file_ids: dict[str, set[FileId]] = {}
         self.file_id_to_tags: dict[FileId, list[str]] = {}
@@ -89,31 +95,72 @@ class TagIndexService:
         file_id_to_tags: dict[FileId, list[str]] = {}
         file_metadata: dict[FileId, IndexedFileMeta] = {}
 
+        failed_paths: list[str] = []
+        index_rows: list[tuple[str, str, int, int]] = []
+        tag_rows: list[tuple[str, str]] = []
+        batch_size = 200
+
         with self._connect() as conn:
             conn.execute("DELETE FROM file_tags")
             conn.execute("DELETE FROM indexed_files")
 
-            progress = tqdm(image_paths, desc="[tag-index] build", unit="file", file=sys.stdout)
-            for image_path in progress:
-                prompt_result = extract_generation_prompts(image_path)
-                positive_tags = _normalize_tags(prompt_result.positive if prompt_result else [])
-                if positive_tags:
+            progress = tqdm(total=len(image_paths), desc="[tag-index] build", unit="file", file=sys.stdout)
+
+            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                futures: dict[Future, Path] = {
+                    executor.submit(extract_generation_prompts, image_path): image_path for image_path in image_paths
+                }
+                for future in as_completed(futures):
+                    image_path = futures[future]
+                    progress.update(1)
+                    try:
+                        prompt_result = future.result()
+                    except Exception:
+                        failed_paths.append(str(image_path.resolve()))
+                        continue
+
+                    positive_tags = _normalize_tags(prompt_result.positive if prompt_result else [])
+                    if not positive_tags:
+                        continue
+
                     file_id = FileId(self.registry.register(image_path))
                     stat_result = image_path.stat()
                     fingerprint = FileFingerprint(mtime_ns=stat_result.st_mtime_ns, size=stat_result.st_size)
 
                     file_id_to_tags[file_id] = positive_tags
                     file_metadata[file_id] = IndexedFileMeta(path=str(image_path.resolve()), fingerprint=fingerprint)
-
-                    conn.execute(
-                        "INSERT INTO indexed_files(file_id, path, mtime_ns, size) VALUES (?, ?, ?, ?)",
-                        (file_id, str(image_path.resolve()), fingerprint.mtime_ns, fingerprint.size),
-                    )
+                    index_rows.append((file_id, str(image_path.resolve()), fingerprint.mtime_ns, fingerprint.size))
 
                     for tag in positive_tags:
                         tag_to_file_ids.setdefault(tag, set()).add(file_id)
-                        conn.execute("INSERT INTO file_tags(tag, file_id) VALUES (?, ?)", (tag, file_id))
+                        tag_rows.append((tag, file_id))
+
+                    if len(index_rows) >= batch_size:
+                        conn.executemany(
+                            "INSERT INTO indexed_files(file_id, path, mtime_ns, size) VALUES (?, ?, ?, ?)",
+                            index_rows,
+                        )
+                        index_rows.clear()
+
+                    if len(tag_rows) >= batch_size:
+                        conn.executemany("INSERT INTO file_tags(tag, file_id) VALUES (?, ?)", tag_rows)
+                        tag_rows.clear()
+
+            if index_rows:
+                conn.executemany(
+                    "INSERT INTO indexed_files(file_id, path, mtime_ns, size) VALUES (?, ?, ?, ?)",
+                    index_rows,
+                )
+            if tag_rows:
+                conn.executemany("INSERT INTO file_tags(tag, file_id) VALUES (?, ?)", tag_rows)
             progress.close()
+
+            if failed_paths:
+                tqdm.write(
+                    "[tag-index] build skipped files due to extraction errors "
+                    f"(count={len(failed_paths)}):\n" + "\n".join(failed_paths),
+                    file=sys.stdout,
+                )
 
         self.tag_to_file_ids = tag_to_file_ids
         self.file_id_to_tags = file_id_to_tags

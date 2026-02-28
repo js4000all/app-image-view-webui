@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import shutil
 import sqlite3
+
+import pytest
 from pathlib import Path
 
 from app.repositories.filesystem import FileSystemRepository
@@ -239,3 +241,50 @@ def test_refresh_index_removes_deleted_files_from_results(tmp_path: Path, monkey
 
     assert indexed_count == 1
     assert tag_count == 0
+
+
+def test_build_index_skips_failed_extraction_and_reports_paths(tmp_path: Path, capsys, monkeypatch):
+    base_dir = tmp_path / "images"
+    base_dir.mkdir()
+    ok_file = base_dir / "ok.png"
+    ng_file = base_dir / "ng.png"
+    ok_file.write_bytes(b"ok")
+    ng_file.write_bytes(b"ng")
+
+    def fake_extract(image_path: Path):
+        if image_path.name == "ng.png":
+            raise RuntimeError("boom")
+
+        class _Result:
+            positive = ["tag-ok"]
+
+        return _Result()
+
+    monkeypatch.setattr("app.services.tag_index_service.extract_generation_prompts", fake_extract)
+
+    service = TagIndexService(
+        base_dir=base_dir,
+        repository=FileSystemRepository(),
+        registry=ResourceRegistry(),
+        db_path=tmp_path / "tag_index.sqlite3",
+        max_workers=2,
+    )
+
+    service.build_index(base_dir)
+    captured = capsys.readouterr()
+
+    assert len(service.file_metadata) == 1
+    assert len(service.query(["tag-ok"], "and")) == 1
+    assert "[tag-index] build skipped files due to extraction errors" in captured.out
+    assert str(ng_file.resolve()) in captured.out
+
+
+def test_build_index_rejects_invalid_max_workers(tmp_path: Path):
+    with pytest.raises(ValueError):
+        TagIndexService(
+            base_dir=tmp_path,
+            repository=FileSystemRepository(),
+            registry=ResourceRegistry(),
+            db_path=tmp_path / "tag_index.sqlite3",
+            max_workers=0,
+        )

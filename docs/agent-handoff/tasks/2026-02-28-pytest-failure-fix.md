@@ -1,0 +1,15 @@
+## Context Handoff
+- Goal: `pytest` 実行時の失敗（`ModuleNotFoundError: app` / Playwright runtime 未導入）を解消し、標準手順でテストが通る状態にする。
+- Changes:
+  - `pytest.ini`
+    - `pythonpath = .` を追加し、`pytest` 単体実行でも `app` パッケージが import できるようにした。
+- Decisions:
+  - Decision: import 解決はテスト実行コマンド依存（`PYTHONPATH=.`）ではなく `pytest.ini` で吸収。
+  - Rationale: ローカル/CI 実行差分を減らし、再現性を高めるため。
+  - Impact: `pytest -q` だけでテスト収集が安定し、サービス/API テストが素直に実行される。
+- Open Questions:
+  - なし。
+- Verification:
+  - `python -m pip install -r requirements-dev.txt` -> 成功。
+  - `python -m playwright install --with-deps chromium` -> 成功。
+  - `pytest -q` -> 成功（23 passed）。
