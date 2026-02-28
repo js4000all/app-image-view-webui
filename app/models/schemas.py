@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pydantic import BaseModel
+from typing import Literal
 
 from app.models.types import DirectoryId, DirectoryName, FileId, FileName
 
@@ -38,3 +39,18 @@ class RenameDirectoryResponse(BaseModel):
     directory_id: DirectoryId
     renamed_from: DirectoryName
     renamed_to: DirectoryName
+
+
+class TagIndexRefreshResponse(BaseModel):
+    indexed_files: int
+    indexed_tags: int
+
+
+class TagQueryRequest(BaseModel):
+    tags: list[str]
+    mode: Literal["and", "or"] = "or"
+
+
+class TagQueryResponse(BaseModel):
+    file_ids: list[FileId]
+    total: int
