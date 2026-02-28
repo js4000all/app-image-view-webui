@@ -4,7 +4,7 @@ import os
 import sqlite3
 import sys
 import threading
-from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from concurrent.futures import Executor, Future, ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -16,6 +16,7 @@ from app.services.prompt_extractor import extract_generation_prompts
 from tqdm import tqdm
 
 QueryMode = Literal["and", "or"]
+DEFAULT_PROMPT_EXTRACTOR = extract_generation_prompts
 
 
 @dataclass(frozen=True)
@@ -106,7 +107,13 @@ class TagIndexService:
 
             progress = tqdm(total=len(image_paths), desc="[tag-index] build", unit="file", file=sys.stdout)
 
-            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            executor_cls: type[Executor]
+            if extract_generation_prompts is DEFAULT_PROMPT_EXTRACTOR:
+                executor_cls = ProcessPoolExecutor
+            else:
+                executor_cls = ThreadPoolExecutor
+
+            with executor_cls(max_workers=self.max_workers) as executor:
                 futures: dict[Future, Path] = {
                     executor.submit(extract_generation_prompts, image_path): image_path for image_path in image_paths
                 }

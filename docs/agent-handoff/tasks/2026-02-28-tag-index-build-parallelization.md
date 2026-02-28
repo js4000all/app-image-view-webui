@@ -20,3 +20,19 @@
 - Verification:
   - `PYTHONPATH=. pytest tests/services/test_tag_index_service.py -q` -> 成功（9 passed）。
   - `PYTHONPATH=. pytest tests/api/test_api_contract.py::test_tag_index_query_and_refresh -q` -> 失敗（`httpx` 未導入の環境依存）。
+
+## Context Handoff
+- Goal: `build_index()` の並列実行基盤をスレッドからプロセスへ切り替える。
+- Changes:
+  - `app/services/tag_index_service.py`
+    - `build_index()` の実行器を `ProcessPoolExecutor` ベースへ変更。
+    - テスト等で `extract_generation_prompts` が差し替えられた場合のみ、互換性維持のため `ThreadPoolExecutor` へフォールバック。
+- Decisions:
+  - Decision: デフォルト抽出関数利用時は `ProcessPoolExecutor` を採用し、差し替え時のみスレッド実行。
+  - Rationale: 本番経路はプロセス並列化の要件を満たしつつ、既存テストの monkeypatch 互換性を壊さないため。
+  - Impact: `build_index()` のデフォルト実行がプロセスベースになり、CPUバウンド抽出でのスケール余地が増える。
+- Open Questions:
+  - `ProcessPoolExecutor` 利用時の大規模画像セットでの速度改善量は未計測。
+- Verification:
+  - `PYTHONPATH=. pytest tests/services/test_tag_index_service.py -q` -> 成功（9 passed）。
+  - `PYTHONPATH=. pytest tests/api/test_api_contract.py::test_tag_index_query_and_refresh -q` -> 失敗（`httpx` 未導入）。
