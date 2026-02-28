@@ -149,13 +149,15 @@ class TagIndexService:
         image_paths = self.repository.list_images_recursive(target_base)
 
         current_files: dict[str, tuple[Path, FileFingerprint]] = {}
-        for image_path in image_paths:
+        scan_progress = tqdm(image_paths, desc="[tag-index] refresh scan", unit="file", file=sys.stdout)
+        for image_path in scan_progress:
             resolved_path = image_path.resolve()
             stat_result = resolved_path.stat()
             current_files[str(resolved_path)] = (
                 resolved_path,
                 FileFingerprint(mtime_ns=stat_result.st_mtime_ns, size=stat_result.st_size),
             )
+        scan_progress.close()
 
         with self._connect() as conn:
             db_files: dict[str, IndexedRecord] = {}
@@ -174,14 +176,17 @@ class TagIndexService:
                 if path in db_files and current_files[path][1] != db_files[path].fingerprint
             )
 
+            reindex_paths = added_paths + modified_paths
+            apply_total = len(deleted_paths) + len(reindex_paths)
+            apply_progress = tqdm(total=apply_total, desc="[tag-index] refresh apply", unit="file", file=sys.stdout)
+
             for path in deleted_paths:
                 file_id = db_files[path].file_id
                 conn.execute("DELETE FROM file_tags WHERE file_id = ?", (file_id,))
                 conn.execute("DELETE FROM indexed_files WHERE file_id = ?", (file_id,))
+                apply_progress.update(1)
 
-            reindex_paths = added_paths + modified_paths
-            progress = tqdm(reindex_paths, desc="[tag-index] refresh", unit="file", file=sys.stdout)
-            for path in progress:
+            for path in reindex_paths:
                 image_path, fingerprint = current_files[path]
 
                 if path in db_files:
@@ -191,6 +196,7 @@ class TagIndexService:
 
                 prompt_result = extract_generation_prompts(image_path)
                 positive_tags = _normalize_tags(prompt_result.positive if prompt_result else [])
+                apply_progress.update(1)
                 if not positive_tags:
                     continue
 
@@ -201,7 +207,7 @@ class TagIndexService:
                 )
                 for tag in positive_tags:
                     conn.execute("INSERT INTO file_tags(tag, file_id) VALUES (?, ?)", (tag, file_id))
-            progress.close()
+            apply_progress.close()
 
         self.load_index_from_db()
 

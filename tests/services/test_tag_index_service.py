@@ -94,6 +94,37 @@ def test_load_index_from_db_restores_in_memory_state(tmp_path: Path):
     assert len(loader.query(["old male", "best quality"], "and")) == 2
 
 
+
+
+def test_refresh_index_outputs_scan_and_apply_progress(tmp_path: Path, capsys, monkeypatch):
+    base_dir = tmp_path / "images"
+    base_dir.mkdir()
+    image_file = base_dir / "001.png"
+    image_file.write_bytes(b"v1")
+
+    def fake_extract(_image_path: Path):
+        class _Result:
+            positive = ["tag-001"]
+
+        return _Result()
+
+    monkeypatch.setattr("app.services.tag_index_service.extract_generation_prompts", fake_extract)
+
+    service = TagIndexService(
+        base_dir=base_dir,
+        repository=FileSystemRepository(),
+        registry=ResourceRegistry(),
+        db_path=tmp_path / "tag_index.sqlite3",
+    )
+    service.build_index(base_dir)
+    capsys.readouterr()
+
+    service.refresh_index()
+    captured = capsys.readouterr()
+
+    assert "[tag-index] refresh scan" in captured.out
+    assert "[tag-index] refresh apply" in captured.out
+
 def test_refresh_index_only_indexes_added_files(tmp_path: Path, monkeypatch):
     base_dir = tmp_path / "images"
     base_dir.mkdir()

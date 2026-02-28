@@ -82,3 +82,21 @@
   - `python -m pip install -r requirements-dev.txt` : 成功
   - `PYTHONPATH=. pytest tests/services/test_tag_index_service.py -q` : 成功（6 passed）
   - `PYTHONPATH=. pytest tests/api/test_api_contract.py -q` : 成功（8 passed）
+
+## Context Handoff
+- Goal: `refresh_index` の進捗表示を、待ち時間の体感に合う形へ改善する。
+- Changes:
+  - `app/services/tag_index_service.py` の `refresh_index` に2段階の進捗表示を追加。
+    - `[tag-index] refresh scan`: ファイル列挙後の fingerprint 収集（`stat`）を可視化。
+    - `[tag-index] refresh apply`: `deleted` 適用 + `added/modified` 再抽出・再挿入を可視化。
+  - `tests/services/test_tag_index_service.py` に `refresh_index` の進捗出力テストを追加し、scan/apply の両バーが標準出力に現れることを検証。
+- Decisions:
+  - Decision: 単一バーで全処理時間を近似するのではなく、scan/apply の2バーを明示する。
+  - Rationale: 「バーが出るまで待ち、出たら一瞬で終わる」体験を避け、実際に時間のかかる前処理を先に可視化するため。
+  - Impact: 差分件数が少ないケースでも、ユーザーは refresh 中の進行を早い段階で確認できる。
+- Open Questions:
+  - `list_images_recursive` 自体（rglob+sort）の待ち時間をさらに減らす/可視化する必要があるか。
+- Verification:
+  - `python -m pip install -r requirements-dev.txt` : 成功
+  - `PYTHONPATH=. pytest tests/services/test_tag_index_service.py -q` : 成功（7 passed）
+  - `PYTHONPATH=. pytest tests/api/test_api_contract.py -q` : 成功（8 passed）
