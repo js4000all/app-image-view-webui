@@ -17,3 +17,18 @@
   - `python -m playwright install --with-deps chromium` : 成功
   - `PYTHONPATH=. pytest tests/services/test_tag_index_service.py tests/api/test_api_contract.py tests/services/test_prompt_extractor.py -q` : 成功（10 passed）
   - `PYTHONPATH=. pytest -q` : 成功（11 passed）
+
+## Context Handoff
+- Goal: インデクス構築中の進捗をローカルコンソールで可視化する。
+- Changes:
+  - `app/services/tag_index_service.py` に進捗表示処理 `_print_progress` を追加し、`build_index` の開始時・各ファイル処理後にプログレスバーを標準出力へ出力。
+  - `tests/services/test_tag_index_service.py` に進捗バー出力確認テストを追加。
+- Decisions:
+  - Decision: 外部依存（tqdm等）は追加せず、標準出力へのキャリッジリターン更新でプログレスバーを実装。
+  - Rationale: 依存を増やさず、既存起動フローに最小差分で要件を満たすため。
+  - Impact: インデクス構築時にローカルコンソールで進行率を確認可能になった。
+- Open Questions:
+  - 大規模件数時に出力頻度を間引くか（現在は各ファイルで更新）。
+- Verification:
+  - `PYTHONPATH=. pytest tests/services/test_tag_index_service.py tests/api/test_api_contract.py -q` : 成功
+  - `PYTHONPATH=. pytest -q` : 成功

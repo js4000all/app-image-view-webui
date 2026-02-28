@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -79,36 +80,52 @@ class TagIndexService:
         tag_to_file_ids: dict[str, set[FileId]] = {}
         file_id_to_tags: dict[FileId, list[str]] = {}
         file_metadata: dict[FileId, IndexedFileMeta] = {}
+        total = len(image_paths)
+
+        self._print_progress(current=0, total=total)
 
         with self._connect() as conn:
             conn.execute("DELETE FROM file_tags")
             conn.execute("DELETE FROM indexed_files")
 
-            for image_path in image_paths:
+            for index, image_path in enumerate(image_paths, start=1):
                 prompt_result = extract_generation_prompts(image_path)
                 positive_tags = _normalize_tags(prompt_result.positive if prompt_result else [])
-                if not positive_tags:
-                    continue
+                if positive_tags:
+                    file_id = FileId(self.registry.register(image_path))
+                    stat_result = image_path.stat()
+                    fingerprint = FileFingerprint(mtime_ns=stat_result.st_mtime_ns, size=stat_result.st_size)
 
-                file_id = FileId(self.registry.register(image_path))
-                stat_result = image_path.stat()
-                fingerprint = FileFingerprint(mtime_ns=stat_result.st_mtime_ns, size=stat_result.st_size)
+                    file_id_to_tags[file_id] = positive_tags
+                    file_metadata[file_id] = IndexedFileMeta(path=str(image_path.resolve()), fingerprint=fingerprint)
 
-                file_id_to_tags[file_id] = positive_tags
-                file_metadata[file_id] = IndexedFileMeta(path=str(image_path.resolve()), fingerprint=fingerprint)
+                    conn.execute(
+                        "INSERT INTO indexed_files(file_id, path, mtime_ns, size) VALUES (?, ?, ?, ?)",
+                        (file_id, str(image_path.resolve()), fingerprint.mtime_ns, fingerprint.size),
+                    )
 
-                conn.execute(
-                    "INSERT INTO indexed_files(file_id, path, mtime_ns, size) VALUES (?, ?, ?, ?)",
-                    (file_id, str(image_path.resolve()), fingerprint.mtime_ns, fingerprint.size),
-                )
+                    for tag in positive_tags:
+                        tag_to_file_ids.setdefault(tag, set()).add(file_id)
+                        conn.execute("INSERT INTO file_tags(tag, file_id) VALUES (?, ?)", (tag, file_id))
 
-                for tag in positive_tags:
-                    tag_to_file_ids.setdefault(tag, set()).add(file_id)
-                    conn.execute("INSERT INTO file_tags(tag, file_id) VALUES (?, ?)", (tag, file_id))
+                self._print_progress(current=index, total=total)
 
         self.tag_to_file_ids = tag_to_file_ids
         self.file_id_to_tags = file_id_to_tags
         self.file_metadata = file_metadata
+
+    def _print_progress(self, *, current: int, total: int) -> None:
+        if total == 0:
+            message = "[tag-index] build progress: 0/0 (100%)"
+        else:
+            percent = int((current / total) * 100)
+            bar_width = 20
+            filled = int(bar_width * current / total)
+            bar = "#" * filled + "-" * (bar_width - filled)
+            message = f"[tag-index] build progress: [{bar}] {current}/{total} ({percent}%)"
+
+        end = "\n" if current >= total else "\r"
+        print(message, file=sys.stdout, end=end, flush=True)
 
     def refresh_index(self) -> None:
         # NOTE: Full rebuild for now. `file_metadata` stores mtime/size fingerprints

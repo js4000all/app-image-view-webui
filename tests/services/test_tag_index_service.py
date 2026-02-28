@@ -8,7 +8,7 @@ from app.services.image_service import ResourceRegistry
 from app.services.tag_index_service import TagIndexService
 
 
-def test_build_index_and_query_with_and_or_modes(tmp_path: Path):
+def test_build_index_and_query_with_and_or_modes(tmp_path: Path, capsys):
     source = Path("tests/resources/images_with_prompt")
     base_dir = tmp_path / "images"
     nested_dir = base_dir / "nested"
@@ -33,3 +33,24 @@ def test_build_index_and_query_with_and_or_modes(tmp_path: Path):
 
     service.refresh_index()
     assert len(service.file_metadata) == 2
+
+
+
+def test_build_index_outputs_progress_bar(tmp_path: Path, capsys):
+    source = Path("tests/resources/images_with_prompt")
+    base_dir = tmp_path / "images"
+    base_dir.mkdir()
+    shutil.copy2(source / "00009.png", base_dir / "00009.png")
+
+    service = TagIndexService(
+        base_dir=base_dir,
+        repository=FileSystemRepository(),
+        registry=ResourceRegistry(),
+        db_path=tmp_path / "tag_index.sqlite3",
+    )
+
+    service.build_index(base_dir)
+    captured = capsys.readouterr()
+
+    assert "[tag-index] build progress:" in captured.out
+    assert "1/1 (100%)" in captured.out
