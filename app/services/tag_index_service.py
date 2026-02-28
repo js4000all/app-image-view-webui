@@ -112,6 +112,32 @@ class TagIndexService:
         self.file_id_to_tags = file_id_to_tags
         self.file_metadata = file_metadata
 
+    def load_index_from_db(self) -> int:
+        tag_to_file_ids: dict[str, set[FileId]] = {}
+        file_id_to_tags: dict[FileId, list[str]] = {}
+        file_metadata: dict[FileId, IndexedFileMeta] = {}
+
+        with self._connect() as conn:
+            indexed_files = conn.execute("SELECT file_id, path, mtime_ns, size FROM indexed_files")
+            for file_id_raw, path, mtime_ns, size in indexed_files:
+                file_id = FileId(file_id_raw)
+                fingerprint = FileFingerprint(mtime_ns=mtime_ns, size=size)
+                file_metadata[file_id] = IndexedFileMeta(path=path, fingerprint=fingerprint)
+                file_id_to_tags[file_id] = []
+
+            file_tags = conn.execute("SELECT tag, file_id FROM file_tags")
+            for tag, file_id_raw in file_tags:
+                file_id = FileId(file_id_raw)
+                if file_id not in file_metadata:
+                    continue
+                file_id_to_tags[file_id].append(tag)
+                tag_to_file_ids.setdefault(tag, set()).add(file_id)
+
+        self.tag_to_file_ids = tag_to_file_ids
+        self.file_id_to_tags = file_id_to_tags
+        self.file_metadata = file_metadata
+        return len(file_metadata)
+
     def refresh_index(self) -> None:
         # NOTE: Full rebuild for now. `file_metadata` stores mtime/size fingerprints
         # that enable future diff-based refreshes.

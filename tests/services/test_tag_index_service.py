@@ -54,3 +54,33 @@ def test_build_index_outputs_progress_bar(tmp_path: Path, capsys):
 
     assert "[tag-index] build" in captured.out
     assert "100%" in captured.out
+
+
+def test_load_index_from_db_restores_in_memory_state(tmp_path: Path):
+    source = Path("tests/resources/images_with_prompt")
+    base_dir = tmp_path / "images"
+    base_dir.mkdir()
+    shutil.copy2(source / "00009.png", base_dir / "00009.png")
+    shutil.copy2(source / "00010.avif", base_dir / "00010.avif")
+    db_path = tmp_path / "tag_index.sqlite3"
+
+    builder = TagIndexService(
+        base_dir=base_dir,
+        repository=FileSystemRepository(),
+        registry=ResourceRegistry(),
+        db_path=db_path,
+    )
+    builder.build_index(base_dir)
+
+    loader = TagIndexService(
+        base_dir=base_dir,
+        repository=FileSystemRepository(),
+        registry=ResourceRegistry(),
+        db_path=db_path,
+    )
+    loaded_count = loader.load_index_from_db()
+
+    assert loaded_count == 2
+    assert len(loader.file_id_to_tags) == 2
+    assert len(loader.file_metadata) == 2
+    assert len(loader.query(["old male", "best quality"], "and")) == 2
