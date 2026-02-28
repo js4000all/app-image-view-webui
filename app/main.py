@@ -12,6 +12,7 @@ from app.api.routes import create_api_router
 from app.config import AppSettings
 from app.repositories.filesystem import FileSystemRepository
 from app.services.image_service import ImageService, ResourceRegistry
+from app.services.tag_index_service import TagIndexService
 
 DEFAULT_STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
@@ -21,8 +22,10 @@ def create_app(settings: AppSettings) -> FastAPI:
     repository = FileSystemRepository()
     registry = ResourceRegistry()
     service = ImageService(base_dir=settings.base_dir, repository=repository, registry=registry)
+    tag_index_service = TagIndexService(base_dir=settings.base_dir, repository=repository, registry=registry)
+    tag_index_service.build_index(settings.base_dir)
 
-    app.include_router(create_api_router(service))
+    app.include_router(create_api_router(service, tag_index_service))
 
     @app.get("/")
     def home() -> FileResponse:

@@ -13,6 +13,9 @@ from app.models.schemas import (
     RenameDirectoryRequest,
     RenameDirectoryResponse,
     SubdirectoriesResponse,
+    TagIndexRefreshResponse,
+    TagQueryRequest,
+    TagQueryResponse,
 )
 from app.models.types import DirectoryId, FileId
 from app.services.image_service import (
@@ -23,9 +26,10 @@ from app.services.image_service import (
     UnsupportedMediaTypeError,
     ValidationError,
 )
+from app.services.tag_index_service import TagIndexService
 
 
-def create_api_router(service: ImageService) -> APIRouter:
+def create_api_router(service: ImageService, tag_index_service: TagIndexService) -> APIRouter:
     router = APIRouter(prefix="/api")
 
     @router.get("/subdirectories", response_model=SubdirectoriesResponse)
@@ -121,5 +125,19 @@ def create_api_router(service: ImageService) -> APIRouter:
             renamed_from=renamed_from,
             renamed_to=renamed_to,
         )
+
+
+    @router.post("/tag-index/refresh", response_model=TagIndexRefreshResponse)
+    def refresh_tag_index() -> TagIndexRefreshResponse:
+        tag_index_service.refresh_index()
+        return TagIndexRefreshResponse(
+            indexed_files=len(tag_index_service.file_id_to_tags),
+            indexed_tags=len(tag_index_service.tag_to_file_ids),
+        )
+
+    @router.post("/tag-index/query", response_model=TagQueryResponse)
+    def query_tag_index(payload: TagQueryRequest) -> TagQueryResponse:
+        file_ids = tag_index_service.query(payload.tags, payload.mode)
+        return TagQueryResponse(file_ids=file_ids, total=len(file_ids))
 
     return router

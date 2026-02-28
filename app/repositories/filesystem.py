@@ -16,6 +16,13 @@ class FileSystemRepository:
             if entry.is_file() and entry.suffix.lower() in self.IMAGE_EXTENSIONS
         ]
 
+    def list_images_recursive(self, base_dir: Path) -> list[Path]:
+        return [
+            entry
+            for entry in sorted(base_dir.rglob("*"))
+            if entry.is_file() and entry.suffix.lower() in self.IMAGE_EXTENSIONS
+        ]
+
     def delete_file(self, path: Path) -> None:
         path.unlink()
 
