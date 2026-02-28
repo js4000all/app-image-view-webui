@@ -9,7 +9,7 @@ from app.services.tag_index_service import TagIndexService
 
 
 def test_build_index_and_query_with_and_or_modes(tmp_path: Path):
-    source = Path("tests/resources/images_with_prompt")
+    source = Path("tests/resources/images_with_prompt/dir1")
     base_dir = tmp_path / "images"
     nested_dir = base_dir / "nested"
     nested_dir.mkdir(parents=True)
@@ -37,7 +37,7 @@ def test_build_index_and_query_with_and_or_modes(tmp_path: Path):
 
 
 def test_build_index_outputs_progress_bar(tmp_path: Path, capsys):
-    source = Path("tests/resources/images_with_prompt")
+    source = Path("tests/resources/images_with_prompt/dir1")
     base_dir = tmp_path / "images"
     base_dir.mkdir()
     shutil.copy2(source / "00009.png", base_dir / "00009.png")
@@ -57,7 +57,7 @@ def test_build_index_outputs_progress_bar(tmp_path: Path, capsys):
 
 
 def test_load_index_from_db_restores_in_memory_state(tmp_path: Path):
-    source = Path("tests/resources/images_with_prompt")
+    source = Path("tests/resources/images_with_prompt/dir1")
     base_dir = tmp_path / "images"
     base_dir.mkdir()
     shutil.copy2(source / "00009.png", base_dir / "00009.png")
