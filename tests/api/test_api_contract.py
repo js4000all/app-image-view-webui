@@ -122,3 +122,22 @@ def test_put_subdirectory_rename_success_and_conflict(api_client_factory, copied
     names = [entry["name"] for entry in refreshed.json()["subdirectories"]]
     assert "renamed-dir" in names
     assert rename_target["name"] not in names
+
+
+def test_tag_index_query_and_refresh(api_client_factory, copied_prompt_image_root):
+    client = api_client_factory(copied_prompt_image_root)
+
+    query_response = client.post(
+        "/api/tag-index/query",
+        json={"tags": ["old male", "best quality"], "mode": "and"},
+    )
+    assert query_response.status_code == 200
+    data = query_response.json()
+    assert data["total"] == 2
+    assert len(data["file_ids"]) == 2
+
+    refresh_response = client.post("/api/tag-index/refresh")
+    assert refresh_response.status_code == 200
+    refreshed = refresh_response.json()
+    assert refreshed["indexed_files"] == 2
+    assert refreshed["indexed_tags"] >= 4

@@ -82,3 +82,15 @@ def api_client_factory(free_tcp_port_factory):
         if process.poll() is None:
             process.terminate()
             process.wait(timeout=3)
+
+
+@pytest.fixture
+def copied_prompt_image_root(tmp_path: Path) -> Path:
+    source = Path("tests/resources/images_with_prompt")
+    destination = tmp_path / "prompt_root"
+    destination.mkdir()
+    shutil.copy2(source / "00009.png", destination / "00009.png")
+    nested = destination / "nested"
+    nested.mkdir()
+    shutil.copy2(source / "00010.avif", nested / "00010.avif")
+    return destination

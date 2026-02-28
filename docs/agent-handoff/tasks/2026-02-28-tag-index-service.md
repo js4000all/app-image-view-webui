@@ -1,0 +1,19 @@
+## Context Handoff
+- Goal: 画像生成プロンプトのポジティブ語句をタグ化し、再帰収集・インデクス再構築・AND/OR検索を `/api` から利用可能にする。
+- Changes:
+  - `app/services/tag_index_service.py` を新規追加し、`build_index` / `refresh_index` / `query` を実装。SQLite 永続化（`tag_index.sqlite3`）と `tag -> set[file_id]`, `file_id -> tags[]` のメモリインデクスを保持。
+  - `app/repositories/filesystem.py` に `list_images_recursive` を追加し、全サブディレクトリ配下の画像を取得。
+  - `app/main.py` で起動時にタグインデクスを初回構築、`app/api/routes.py` と `app/models/schemas.py` にタグ検索/リフレッシュAPIを追加。
+  - `tests/services/test_tag_index_service.py` と `tests/api/test_api_contract.py` / `tests/api/conftest.py` を更新し、検索とリフレッシュのAPI契約を検証。
+- Decisions:
+  - Decision: 初回実装では `refresh_index` を全件再構築にし、将来差分更新のため `FileFingerprint(mtime_ns, size)` と `file_metadata` 構造を先に導入。
+  - Rationale: 仕様充足と堅牢性を優先し、差分ロジックの複雑化を避けつつ移行パスを確保するため。
+  - Impact: 将来、`refresh_index` の内部実装を差分方式に置換してもAPI契約は維持できる。
+- Open Questions:
+  - 検索結果に `file_id` のみを返す現行仕様で十分か（将来的にタグハイライトやファイル名同梱要件が出る可能性）。
+  - タグ正規化（casefold）のみで十分か（全角半角・記号正規化の要否）。
+- Verification:
+  - `python -m pip install -r requirements-dev.txt` : 成功
+  - `python -m playwright install --with-deps chromium` : 成功
+  - `PYTHONPATH=. pytest tests/services/test_tag_index_service.py tests/api/test_api_contract.py tests/services/test_prompt_extractor.py -q` : 成功（10 passed）
+  - `PYTHONPATH=. pytest -q` : 成功（11 passed）
