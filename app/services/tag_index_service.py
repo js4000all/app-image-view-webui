@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 import sys
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -24,6 +25,12 @@ class FileFingerprint:
 @dataclass(frozen=True)
 class IndexedFileMeta:
     path: str
+    fingerprint: FileFingerprint
+
+
+@dataclass(frozen=True)
+class IndexedRecord:
+    file_id: FileId
     fingerprint: FileFingerprint
 
 
@@ -138,10 +145,90 @@ class TagIndexService:
         self.file_metadata = file_metadata
         return len(file_metadata)
 
+
+    def _list_images_recursive_with_progress(self, target_base: Path) -> list[Path]:
+        done = threading.Event()
+
+        def _tick_listing_progress() -> None:
+            progress = tqdm(desc="[tag-index] refresh list", unit="file", file=sys.stdout)
+            while not done.wait(0.1):
+                progress.update(1)
+            progress.close()
+
+        ticker = threading.Thread(target=_tick_listing_progress, daemon=True)
+        ticker.start()
+        try:
+            return self.repository.list_images_recursive(target_base)
+        finally:
+            done.set()
+            ticker.join()
+
     def refresh_index(self) -> None:
-        # NOTE: Full rebuild for now. `file_metadata` stores mtime/size fingerprints
-        # that enable future diff-based refreshes.
-        self.build_index(self.base_dir)
+        target_base = self.base_dir.resolve()
+        image_paths = self._list_images_recursive_with_progress(target_base)
+
+        current_files: dict[str, tuple[Path, FileFingerprint]] = {}
+        scan_progress = tqdm(image_paths, desc="[tag-index] refresh scan", unit="file", file=sys.stdout)
+        for image_path in scan_progress:
+            resolved_path = image_path.resolve()
+            stat_result = resolved_path.stat()
+            current_files[str(resolved_path)] = (
+                resolved_path,
+                FileFingerprint(mtime_ns=stat_result.st_mtime_ns, size=stat_result.st_size),
+            )
+        scan_progress.close()
+
+        with self._connect() as conn:
+            db_files: dict[str, IndexedRecord] = {}
+            rows = conn.execute("SELECT file_id, path, mtime_ns, size FROM indexed_files")
+            for file_id_raw, path, mtime_ns, size in rows:
+                db_files[path] = IndexedRecord(
+                    file_id=FileId(file_id_raw),
+                    fingerprint=FileFingerprint(mtime_ns=mtime_ns, size=size),
+                )
+
+            added_paths = sorted(path for path in current_files if path not in db_files)
+            deleted_paths = sorted(path for path in db_files if path not in current_files)
+            modified_paths = sorted(
+                path
+                for path in current_files
+                if path in db_files and current_files[path][1] != db_files[path].fingerprint
+            )
+
+            reindex_paths = added_paths + modified_paths
+            apply_total = len(deleted_paths) + len(reindex_paths)
+            apply_progress = tqdm(total=apply_total, desc="[tag-index] refresh apply", unit="file", file=sys.stdout)
+
+            for path in deleted_paths:
+                file_id = db_files[path].file_id
+                conn.execute("DELETE FROM file_tags WHERE file_id = ?", (file_id,))
+                conn.execute("DELETE FROM indexed_files WHERE file_id = ?", (file_id,))
+                apply_progress.update(1)
+
+            for path in reindex_paths:
+                image_path, fingerprint = current_files[path]
+
+                if path in db_files:
+                    old_file_id = db_files[path].file_id
+                    conn.execute("DELETE FROM file_tags WHERE file_id = ?", (old_file_id,))
+                    conn.execute("DELETE FROM indexed_files WHERE file_id = ?", (old_file_id,))
+
+                prompt_result = extract_generation_prompts(image_path)
+                positive_tags = _normalize_tags(prompt_result.positive if prompt_result else [])
+                apply_progress.update(1)
+                if not positive_tags:
+                    continue
+
+                file_id = FileId(self.registry.register(image_path))
+                conn.execute(
+                    "INSERT INTO indexed_files(file_id, path, mtime_ns, size) VALUES (?, ?, ?, ?)",
+                    (file_id, path, fingerprint.mtime_ns, fingerprint.size),
+                )
+                for tag in positive_tags:
+                    conn.execute("INSERT INTO file_tags(tag, file_id) VALUES (?, ?)", (tag, file_id))
+            apply_progress.close()
+
+        self.load_index_from_db()
 
     def query(self, tags: list[str], mode: QueryMode) -> list[FileId]:
         normalized_tags = _normalize_tags(tags)

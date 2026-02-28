@@ -64,3 +64,56 @@
   - DB破損時の詳細ログ（例: 例外種別）を追加で出すかどうか。
 - Verification:
   - `PYTHONPATH=. pytest tests/services/test_tag_index_service.py tests/api/test_api_contract.py -q` : 成功
+
+## Context Handoff
+- Goal: `refresh_index` を差分判定ベースへ更新し、追加/変更/削除のみをDB反映する。
+- Changes:
+  - `app/services/tag_index_service.py` の `refresh_index` を差分更新方式に変更し、`indexed_files(path, mtime_ns, size)` と現在ファイル一覧を比較して `added` / `modified` / `deleted` を分類。
+  - `added` と `modified` のみ `extract_generation_prompts` を再実行するようにし、`modified` は旧 `file_tags` / `indexed_files` を削除後に再挿入、`deleted` は両テーブルから削除する処理を追加。
+  - 差分反映完了後は `load_index_from_db()` を呼び出し、`tag_to_file_ids` などメモリインデクスをDB再読込で再同期。
+  - `tests/services/test_tag_index_service.py` に、追加ファイルのみ取込・変更ファイルのみ再抽出・削除ファイルの検索除外を検証するテストを追加。
+- Decisions:
+  - Decision: 差分反映後のメモリ同期は増分更新ではなく `load_index_from_db()` に統一。
+  - Rationale: 初期実装として複雑さを抑えつつ、DB整合性を単一経路で保証するため。
+  - Impact: リフレッシュ後のインメモリ状態は常にDB由来となり、更新ロジックの分岐バグを避けやすくなる。
+- Open Questions:
+  - `extract_generation_prompts` が `None` を返す画像を `indexed_files` に保持しない設計でよいか（未抽出ファイルは毎回 `added` 扱いで再試行される）。
+- Verification:
+  - `python -m pip install -r requirements-dev.txt` : 成功
+  - `PYTHONPATH=. pytest tests/services/test_tag_index_service.py -q` : 成功（6 passed）
+  - `PYTHONPATH=. pytest tests/api/test_api_contract.py -q` : 成功（8 passed）
+
+## Context Handoff
+- Goal: `refresh_index` の進捗表示を、待ち時間の体感に合う形へ改善する。
+- Changes:
+  - `app/services/tag_index_service.py` の `refresh_index` に2段階の進捗表示を追加。
+    - `[tag-index] refresh scan`: ファイル列挙後の fingerprint 収集（`stat`）を可視化。
+    - `[tag-index] refresh apply`: `deleted` 適用 + `added/modified` 再抽出・再挿入を可視化。
+  - `tests/services/test_tag_index_service.py` に `refresh_index` の進捗出力テストを追加し、scan/apply の両バーが標準出力に現れることを検証。
+- Decisions:
+  - Decision: 単一バーで全処理時間を近似するのではなく、scan/apply の2バーを明示する。
+  - Rationale: 「バーが出るまで待ち、出たら一瞬で終わる」体験を避け、実際に時間のかかる前処理を先に可視化するため。
+  - Impact: 差分件数が少ないケースでも、ユーザーは refresh 中の進行を早い段階で確認できる。
+- Open Questions:
+  - `list_images_recursive` 自体（rglob+sort）の待ち時間をさらに減らす/可視化する必要があるか。
+- Verification:
+  - `python -m pip install -r requirements-dev.txt` : 成功
+  - `PYTHONPATH=. pytest tests/services/test_tag_index_service.py -q` : 成功（7 passed）
+  - `PYTHONPATH=. pytest tests/api/test_api_contract.py -q` : 成功（8 passed）
+
+## Context Handoff
+- Goal: refresh開始直後の待ち時間に、母数未確定の進捗を即時表示する。
+- Changes:
+  - `app/services/tag_index_service.py` に `_list_images_recursive_with_progress()` を追加し、`list_images_recursive` 実行中に別スレッドで `[tag-index] refresh list`（total未指定）を更新する実装を追加。
+  - `refresh_index` は上記ヘルパー経由でファイル一覧を取得するよう変更し、その後の `scan` / `apply` 2段階バーは維持。
+  - `tests/services/test_tag_index_service.py` の進捗テストを更新し、`refresh list` / `refresh scan` / `refresh apply` の出力を検証。
+- Decisions:
+  - Decision: ファイル列挙の重い区間は indeterminate バーを別スレッドで回して可視化する。
+  - Rationale: 列挙結果（母数）が確定する前に進捗表示を出し、体感上の無応答時間をなくすため。
+  - Impact: 大規模ディレクトリでも refresh 実行直後に進捗表示が始まる。
+- Open Questions:
+  - `build_index` 側にも同様の indeterminate 列挙バーを付与するか。
+- Verification:
+  - `PYTHONPATH=. pytest tests/services/test_tag_index_service.py -q` : 成功（7 passed）
+  - `python -m pip install -r requirements-dev.txt` : 成功
+  - `PYTHONPATH=. pytest tests/api/test_api_contract.py -q` : 成功（8 passed）
