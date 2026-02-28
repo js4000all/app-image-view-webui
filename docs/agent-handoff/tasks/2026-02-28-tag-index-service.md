@@ -151,3 +151,20 @@
   - `pytest -q` : 失敗（初回。Playwright browser executable未導入）
   - `python -m playwright install --with-deps chromium` : 成功
   - `pytest -q` : 成功（24 passed）
+
+## Context Handoff
+- Goal: refresh進捗表示のうち、scan工程をディレクトリ単位ではなくファイル単位で表示する。
+- Changes:
+  - `app/services/tag_index_service.py` の `refresh_index` で、`changed_directories` から対象ファイル一覧（`changed_directory_files`）を先に収集するよう変更。
+  - `refresh scan` の `tqdm` は `changed_directory_files` を対象にし、`unit="file"` でファイル数進捗を表示するようにした。
+  - `refresh list` は従来どおりディレクトリ列挙の indeterminate 表示（`unit="dir"`）を維持。
+- Decisions:
+  - Decision: list工程はディレクトリ、scan工程はファイルを単位に分離したまま表示する。
+  - Rationale: 体感時間の長い scan に対して、実作業量（ファイル数）に沿った進捗を出すため。
+  - Impact: scanバーがディレクトリ数ではなく対象画像ファイル総数ベースで進行する。
+- Open Questions:
+  - なし。
+- Verification:
+  - `python -m pip install -r requirements-dev.txt` : 成功
+  - `python -m playwright install --with-deps chromium` : 成功
+  - `pytest -q` : 成功（24 passed）

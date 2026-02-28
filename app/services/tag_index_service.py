@@ -261,17 +261,25 @@ class TagIndexService:
             )
             deleted_directories = sorted(path for path in db_directories if path not in current_directories)
 
-            current_files: dict[str, tuple[Path, FileFingerprint]] = {}
-            scan_progress = tqdm(changed_directories, desc="[tag-index] refresh scan", unit="dir", file=sys.stdout)
-            for directory_path in scan_progress:
+            changed_directory_files: list[Path] = []
+            for directory_path in changed_directories:
                 directory = Path(directory_path)
-                for image_path in self.repository.list_images(directory):
-                    resolved_path = image_path.resolve()
-                    stat_result = resolved_path.stat()
-                    current_files[str(resolved_path)] = (
-                        resolved_path,
-                        FileFingerprint(mtime_ns=stat_result.st_mtime_ns, size=stat_result.st_size),
-                    )
+                changed_directory_files.extend(self.repository.list_images(directory))
+
+            current_files: dict[str, tuple[Path, FileFingerprint]] = {}
+            scan_progress = tqdm(
+                changed_directory_files,
+                desc="[tag-index] refresh scan",
+                unit="file",
+                file=sys.stdout,
+            )
+            for image_path in scan_progress:
+                resolved_path = image_path.resolve()
+                stat_result = resolved_path.stat()
+                current_files[str(resolved_path)] = (
+                    resolved_path,
+                    FileFingerprint(mtime_ns=stat_result.st_mtime_ns, size=stat_result.st_size),
+                )
             scan_progress.close()
 
             db_files_in_changed_dirs = {
