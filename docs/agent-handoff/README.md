@@ -41,3 +41,16 @@ browser tool（Playwright）で画面確認に失敗した場合は、タスク�
 ```
 
 この記録により、「サーバ死活は正常だがブラウザ到達に失敗」なのか「UIレンダリング待機不足（遅延）」なのかを切り分けやすくする。
+
+## pytest実行前の依存導入チェック（再発防止）
+
+pytestを実行する前に、次を**必ずこの順で**実行する。
+
+```sh
+python -m pip install -r requirements-dev.txt
+python -m playwright install --with-deps chromium
+```
+
+- API/サービス層テストのみでも、まず `requirements-dev.txt` を入れてから実行する。
+- E2Eを含む `pytest` 実行では、browser未導入エラー回避のため Playwright の Chromium 導入まで完了させる。
+
