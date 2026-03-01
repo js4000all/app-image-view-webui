@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "build:bundle": "vite build",
-    "check": "npm run build:bundle"
+    "check": "npm run check:api-client && npm run build:bundle",
+    "generate:api-client": "openapi --input ./openapi/openapi.json --output ./src/generated/api --client fetch --useOptions --exportSchemas true",
+    "sync:api-client": "python ../tools/export_openapi.py && npm run generate:api-client",
+    "check:api-client": "npm run sync:api-client && git diff --exit-code -- openapi/openapi.json src/generated/api"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -15,6 +18,7 @@
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
     "typescript": "^5.6.3",
-    "vite": "^5.4.10"
+    "vite": "^5.4.10",
+    "openapi-typescript-codegen": "^0.29.0"
   }
 }

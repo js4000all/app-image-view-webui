@@ -1,0 +1,751 @@
+{
+  "components": {
+    "schemas": {
+      "DeleteImageResponse": {
+        "properties": {
+          "deleted": {
+            "minLength": 1,
+            "pattern": "^[^/\\\\]+$",
+            "title": "Deleted",
+            "type": "string"
+          },
+          "file_id": {
+            "title": "File Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "deleted",
+          "file_id"
+        ],
+        "title": "DeleteImageResponse",
+        "type": "object"
+      },
+      "DirectoryEntry": {
+        "properties": {
+          "directory_id": {
+            "title": "Directory Id",
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "pattern": "^[^/\\\\]+$",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "directory_id",
+          "name"
+        ],
+        "title": "DirectoryEntry",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "ImageEntry": {
+        "properties": {
+          "file_id": {
+            "title": "File Id",
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "pattern": "^[^/\\\\]+$",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file_id",
+          "name"
+        ],
+        "title": "ImageEntry",
+        "type": "object"
+      },
+      "ImagesResponse": {
+        "properties": {
+          "directory_id": {
+            "title": "Directory Id",
+            "type": "string"
+          },
+          "images": {
+            "items": {
+              "$ref": "#/components/schemas/ImageEntry"
+            },
+            "title": "Images",
+            "type": "array"
+          },
+          "subdirectory": {
+            "minLength": 1,
+            "pattern": "^[^/\\\\]+$",
+            "title": "Subdirectory",
+            "type": "string"
+          }
+        },
+        "required": [
+          "directory_id",
+          "subdirectory",
+          "images"
+        ],
+        "title": "ImagesResponse",
+        "type": "object"
+      },
+      "RenameDirectoryRequest": {
+        "properties": {
+          "new_name": {
+            "minLength": 1,
+            "pattern": "^[^/\\\\]+$",
+            "title": "New Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "new_name"
+        ],
+        "title": "RenameDirectoryRequest",
+        "type": "object"
+      },
+      "RenameDirectoryResponse": {
+        "properties": {
+          "directory_id": {
+            "title": "Directory Id",
+            "type": "string"
+          },
+          "renamed_from": {
+            "minLength": 1,
+            "pattern": "^[^/\\\\]+$",
+            "title": "Renamed From",
+            "type": "string"
+          },
+          "renamed_to": {
+            "minLength": 1,
+            "pattern": "^[^/\\\\]+$",
+            "title": "Renamed To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "directory_id",
+          "renamed_from",
+          "renamed_to"
+        ],
+        "title": "RenameDirectoryResponse",
+        "type": "object"
+      },
+      "SubdirectoriesResponse": {
+        "properties": {
+          "subdirectories": {
+            "items": {
+              "$ref": "#/components/schemas/DirectoryEntry"
+            },
+            "title": "Subdirectories",
+            "type": "array"
+          }
+        },
+        "required": [
+          "subdirectories"
+        ],
+        "title": "SubdirectoriesResponse",
+        "type": "object"
+      },
+      "TagIndexRefreshJobCounters": {
+        "properties": {
+          "added": {
+            "title": "Added",
+            "type": "integer"
+          },
+          "deleted": {
+            "title": "Deleted",
+            "type": "integer"
+          },
+          "modified": {
+            "title": "Modified",
+            "type": "integer"
+          },
+          "reindexed": {
+            "title": "Reindexed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "added",
+          "modified",
+          "deleted",
+          "reindexed"
+        ],
+        "title": "TagIndexRefreshJobCounters",
+        "type": "object"
+      },
+      "TagIndexRefreshJobStartResponse": {
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "TagIndexRefreshJobStartResponse",
+        "type": "object"
+      },
+      "TagIndexRefreshJobStatusResponse": {
+        "properties": {
+          "counters": {
+            "$ref": "#/components/schemas/TagIndexRefreshJobCounters"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "indexed_files": {
+            "title": "Indexed Files",
+            "type": "integer"
+          },
+          "indexed_tags": {
+            "title": "Indexed Tags",
+            "type": "integer"
+          },
+          "job_id": {
+            "title": "Job Id",
+            "type": "string"
+          },
+          "processed_files": {
+            "title": "Processed Files",
+            "type": "integer"
+          },
+          "progress_phase": {
+            "enum": [
+              "queued",
+              "listing",
+              "scanning",
+              "applying",
+              "finalizing",
+              "done",
+              "failed"
+            ],
+            "title": "Progress Phase",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "total_files": {
+            "title": "Total Files",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "job_id",
+          "status",
+          "progress_phase",
+          "processed_files",
+          "total_files",
+          "indexed_files",
+          "indexed_tags",
+          "counters"
+        ],
+        "title": "TagIndexRefreshJobStatusResponse",
+        "type": "object"
+      },
+      "TagIndexRefreshResponse": {
+        "properties": {
+          "indexed_files": {
+            "title": "Indexed Files",
+            "type": "integer"
+          },
+          "indexed_tags": {
+            "title": "Indexed Tags",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "indexed_files",
+          "indexed_tags"
+        ],
+        "title": "TagIndexRefreshResponse",
+        "type": "object"
+      },
+      "TagQueryRequest": {
+        "properties": {
+          "mode": {
+            "default": "or",
+            "enum": [
+              "and",
+              "or"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tags"
+        ],
+        "title": "TagQueryRequest",
+        "type": "object"
+      },
+      "TagQueryResponse": {
+        "properties": {
+          "file_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "File Ids",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "file_ids",
+          "total"
+        ],
+        "title": "TagQueryResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "app-image-view-webui",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/": {
+      "get": {
+        "operationId": "home__get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Home"
+      }
+    },
+    "/api/image/{file_id}": {
+      "delete": {
+        "operationId": "deleteImage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "file_id",
+            "required": true,
+            "schema": {
+              "title": "File Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteImageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Image"
+      },
+      "get": {
+        "operationId": "getImage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "file_id",
+            "required": true,
+            "schema": {
+              "title": "File Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Image"
+      },
+      "head": {
+        "operationId": "headImage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "file_id",
+            "required": true,
+            "schema": {
+              "title": "File Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Head Image"
+      }
+    },
+    "/api/images/{directory_id}": {
+      "get": {
+        "operationId": "listImages",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "directory_id",
+            "required": true,
+            "schema": {
+              "title": "Directory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImagesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Images"
+      }
+    },
+    "/api/subdirectories": {
+      "get": {
+        "operationId": "listSubdirectories",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubdirectoriesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Subdirectories"
+      }
+    },
+    "/api/subdirectories/{directory_id}": {
+      "put": {
+        "operationId": "renameSubdirectory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "directory_id",
+            "required": true,
+            "schema": {
+              "title": "Directory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameDirectoryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenameDirectoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rename Subdirectory"
+      }
+    },
+    "/api/tag-index/query": {
+      "post": {
+        "operationId": "queryTagIndex",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TagQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TagQueryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Query Tag Index"
+      }
+    },
+    "/api/tag-index/refresh": {
+      "post": {
+        "description": "Backward-compatible synchronous refresh API.\n\nNew clients should migrate to POST /api/tag-index/refresh-jobs and\npoll GET /api/tag-index/refresh-jobs/{job_id}. This endpoint currently\nwaits for job completion and returns the final counts.",
+        "operationId": "refreshTagIndex",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TagIndexRefreshResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Refresh Tag Index"
+      }
+    },
+    "/api/tag-index/refresh-jobs": {
+      "post": {
+        "operationId": "startTagIndexRefreshJob",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TagIndexRefreshJobStartResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Start Tag Index Refresh Job"
+      }
+    },
+    "/api/tag-index/refresh-jobs/{job_id}": {
+      "get": {
+        "operationId": "getTagIndexRefreshJob",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TagIndexRefreshJobStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Tag Index Refresh Job"
+      }
+    },
+    "/viewer": {
+      "get": {
+        "operationId": "viewer_viewer_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Viewer"
+      }
+    }
+  }
+}

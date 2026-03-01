@@ -1,0 +1,34 @@
+## Context Handoff
+- Goal:
+  - FastAPI の OpenAPI 定義を起点に、SPA クライアントを自動生成する開発フローへ統一する。
+  - AI エージェントが最終確認を漏らしにくいよう、単一の検証スクリプトへ集約する。
+- Changes:
+  - `app/api/routes.py`
+    - 各 API ルートに `operation_id` を追加し、生成クライアントのメソッド名を安定化。
+  - `tools/export_openapi.py`
+    - FastAPI アプリから `frontend/openapi/openapi.json` を出力するスクリプトを追加。
+  - `frontend/package.json`
+    - `openapi-typescript-codegen` を追加。
+    - `generate:api-client`, `sync:api-client`, `check:api-client` スクリプトを追加。
+  - `frontend/src/generated/api/*`
+    - OpenAPI から生成した SPA API クライアントを追加。
+  - `frontend/src/features/home/api/homeApi.ts`
+  - `frontend/src/features/viewer/api/viewerApi.ts`
+    - 手書き fetch 実装から、生成クライアント (`DefaultService`) 利用へ切り替え。
+  - `scripts/verify_spa_api_flow.sh`
+    - OpenAPI 生成→クライアント生成→差分検証→SPA ビルド（+必要に応じ E2E）を 1 本化。
+  - `.github/workflows/ui-build.yml`
+    - `quick` モードの統合検証スクリプトを CI で実行。
+    - 生成物の自動コミット/更新漏れ検知対象に OpenAPI と生成クライアントを追加。
+  - `README.md`
+    - 新しい API 同期フローと統合検証スクリプトの利用手順を追記。
+- Decisions:
+  - Decision: CI では重い E2E を統合スクリプトから分離し、`quick` を標準利用する。
+  - Rationale: 生成物整合性チェックは高速に常時実行し、E2E の実行コストを分離して安定性を維持するため。
+  - Impact: PR 時の API 同期漏れを早期検知しつつ、既存 E2E ジョブ構成を維持。
+- Open Questions:
+  - `DefaultService` に `/` と `/viewer` も生成されるため、将来的に OpenAPI から除外するか（`include_in_schema=False`）は要検討。
+- Verification:
+  - `python tools/export_openapi.py && npm --prefix frontend run generate:api-client`（成功）
+  - `npm --prefix frontend run build:bundle`（成功）
+  - `./scripts/verify_spa_api_flow.sh quick`（成功）

@@ -133,6 +133,26 @@ curl -i http://127.0.0.1:8000/api/subdirectories
 - 生成物配置先: `static/home-app/`
 - 起動後の確認 URL: `http://localhost:8000/`
 
+### FastAPI OpenAPI -> SPA クライアント自動生成フロー
+
+SPA の API 呼び出しは `frontend/src/generated/api` の自動生成クライアントを利用します。
+生成元は FastAPI の OpenAPI 定義です。
+
+- OpenAPI JSON 生成: `python tools/export_openapi.py`
+- クライアント生成: `npm --prefix frontend run generate:api-client`
+- まとめて同期: `npm --prefix frontend run sync:api-client`
+
+AI エージェント/CI 向けの最終確認は以下の単一スクリプトに集約しています。
+
+```sh
+./scripts/verify_spa_api_flow.sh quick
+```
+
+- `quick`: OpenAPI 生成 → SPA クライアント生成 → 差分検証 → SPA ビルド
+- `full`: `quick` に加えて Playwright E2E 実行
+
+GitHub Actions でも `quick` を実行し、生成物（`frontend/openapi/openapi.json`, `frontend/src/generated/api`, `static/home-app`）の更新漏れを検知します。
+
 ### CI（GitHub Actions）
 
 `.github/workflows/ui-build.yml` で以下を実行します。
