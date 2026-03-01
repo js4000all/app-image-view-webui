@@ -84,3 +84,12 @@ class TagQueryRequest(BaseModel):
 class TagQueryResponse(BaseModel):
     file_ids: list[FileId]
     total: int
+
+
+class TagSummaryEntry(BaseModel):
+    tag: str
+    count: int
+
+
+class TagListResponse(BaseModel):
+    tags: list[TagSummaryEntry]

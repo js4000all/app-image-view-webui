@@ -152,6 +152,23 @@ def test_put_subdirectory_rename_success_and_conflict(api_client_factory, copied
     assert rename_target["name"] not in names
 
 
+
+
+def test_list_tag_index_tags_returns_tag_counts(api_client_factory, copied_prompt_image_root):
+    client = api_client_factory(copied_prompt_image_root)
+
+    response = client.get("/api/tag-index/tags")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert isinstance(payload["tags"], list)
+    assert payload["tags"]
+
+    first = payload["tags"][0]
+    assert isinstance(first["tag"], str)
+    assert isinstance(first["count"], int)
+    assert first["count"] >= 1
+
 def test_tag_index_query_and_refresh(api_client_factory, copied_prompt_image_root):
     client = api_client_factory(copied_prompt_image_root)
 

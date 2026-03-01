@@ -8,10 +8,11 @@ import type { DirectoryEntry } from '../../../types/home'
 type HomePageProps = {
   requestedDirectoryId: string
   onOpenViewer: (directoryId: string) => void
+  onOpenFilter: () => void
 }
 
 export function HomePage(props: HomePageProps) {
-  const { requestedDirectoryId, onOpenViewer } = props
+  const { requestedDirectoryId, onOpenViewer, onOpenFilter } = props
   const { subdirectories, status, loading, refreshSubdirectories, setStatus } = useSubdirectories()
   const { thumbnails, registerCard, resetThumbnails, scrollToCard } = useSubdirectoryThumbnails(subdirectories)
   const hasScrolledRef = useRef(false)
@@ -50,15 +51,25 @@ export function HomePage(props: HomePageProps) {
     <main className="home">
       <h1>サブディレクトリ一覧</h1>
       <p className="home-description">閲覧するフォルダを選択してください。</p>
-      <button
-        id="reload-subdirs"
-        type="button"
-        className="reload-button"
-        onClick={() => void handleReload()}
-        disabled={loading}
-      >
-        再読み込み
-      </button>
+      <div className="home-toolbar">
+        <button
+          id="open-filter-page"
+          type="button"
+          className="reload-button"
+          onClick={onOpenFilter}
+        >
+          タグ絞り込み
+        </button>
+        <button
+          id="reload-subdirs"
+          type="button"
+          className="reload-button"
+          onClick={() => void handleReload()}
+          disabled={loading}
+        >
+          再読み込み
+        </button>
+      </div>
       <ul id="subdir-list" className="subdir-list" aria-live="polite">
         {subdirectories.map((subdirectory) => (
           <SubdirectoryCard

@@ -17,8 +17,10 @@ from app.models.schemas import (
     TagIndexRefreshJobStartResponse,
     TagIndexRefreshJobStatusResponse,
     TagIndexRefreshResponse,
+    TagListResponse,
     TagQueryRequest,
     TagQueryResponse,
+    TagSummaryEntry,
 )
 from app.models.types import DirectoryId, FileId
 from app.services.image_service import (
@@ -223,6 +225,16 @@ def create_api_router(service: ImageService, tag_index_service: TagIndexService)
             indexed_files=status.indexed_files,
             indexed_tags=status.indexed_tags,
         )
+
+
+    @router.get(
+        "/tag-index/tags",
+        response_model=TagListResponse,
+        operation_id="listTagIndexTags",
+    )
+    def list_tag_index_tags() -> TagListResponse:
+        tags = [TagSummaryEntry(tag=tag, count=count) for tag, count in tag_index_service.list_tags()]
+        return TagListResponse(tags=tags)
 
     @router.post(
         "/tag-index/query",

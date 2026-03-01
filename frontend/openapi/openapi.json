@@ -324,6 +324,22 @@
         "title": "TagIndexRefreshResponse",
         "type": "object"
       },
+      "TagListResponse": {
+        "properties": {
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/TagSummaryEntry"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tags"
+        ],
+        "title": "TagListResponse",
+        "type": "object"
+      },
       "TagQueryRequest": {
         "properties": {
           "mode": {
@@ -368,6 +384,24 @@
           "total"
         ],
         "title": "TagQueryResponse",
+        "type": "object"
+      },
+      "TagSummaryEntry": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "tag": {
+            "title": "Tag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag",
+          "count"
+        ],
+        "title": "TagSummaryEntry",
         "type": "object"
       },
       "ValidationError": {
@@ -800,6 +834,24 @@
           }
         },
         "summary": "Get Tag Index Refresh Job"
+      }
+    },
+    "/api/tag-index/tags": {
+      "get": {
+        "operationId": "listTagIndexTags",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TagListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Tag Index Tags"
       }
     },
     "/viewer": {

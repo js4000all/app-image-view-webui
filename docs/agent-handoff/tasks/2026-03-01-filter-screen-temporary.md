@@ -1,0 +1,40 @@
+## Context Handoff
+- Goal: 暫定版のタグ絞り込み画面を追加し、ホーム画面からの導線とタグ選択ベースの閲覧導線を実装する。
+- Changes:
+  - `frontend/src/App.tsx`: `/filter` ルートとタグ指定の `/viewer?tag=...` 導線を追加。タグ経由閲覧時は戻り先を絞り込み画面にし、削除を無効化。
+  - `frontend/src/features/filter/pages/FilterPage.tsx`: タグボタン一覧（折り返し表示）、単一選択トグル、200件以下で有効化される閲覧ボタンを追加。
+  - `frontend/src/features/home/pages/HomePage.tsx` と `frontend/src/features/home/api/homeApi.ts`: ホームから絞り込み画面へ遷移ボタンを追加し、タグ一覧APIを呼び出す関数を追加。
+  - `app/api/routes.py`, `app/models/schemas.py`, `app/services/tag_index_service.py`: タグ名と件数を返す `GET /api/tag-index/tags` を追加。
+  - `tests/api/test_api_contract.py`: タグ一覧APIの契約テストを追加。
+  - `static/styles.css` と `static/home-app/*`: 絞り込みUI向けスタイルとSPAビルド成果物を更新。
+- Decisions:
+  - Decision: タグ一覧は `tag_index_service` のメモリインデックスから `count` を算出して返すAPIを新設。
+  - Rationale: 画面要求（タグ名+件数ボタン）を満たすために、既存のタグ検索APIだけでは情報不足だった。
+  - Impact: API契約が拡張され、フロントはタグ数に応じた閲覧可否制御が可能になった。
+- Open Questions:
+  - フィルタ画面からの「ホームへ戻る」は現状リンク遷移（通常の `/`）のみ。将来的に選択状態保持やパンくず要件が必要なら導線仕様を再定義する。
+  - タグ件数閾値（200）は暫定固定値。設定化の要否は要検討。
+- Verification:
+  - `python -m pip install -r requirements-dev.txt`（成功）
+  - `pytest tests/api/test_api_contract.py -q`（11 passed）
+  - `npm --prefix frontend ci`（成功）
+  - `npm --prefix frontend run build:bundle`（成功）
+  - `run_playwright_script`（失敗: browser container の Chromium が SIGSEGV、Firefox は selector timeout）
+
+## Context Handoff (follow-up)
+- Goal: CI の `verify_spa_api_flow.sh quick` 失敗原因（OpenAPI/生成クライアント差分）と E2E 落ちの再現有無を切り分ける。
+- Changes:
+  - `frontend/openapi/openapi.json` と `frontend/src/generated/api/*` に `TagListResponse` / `TagSummaryEntry` / `listTagIndexTags` を反映。
+  - `frontend/src/features/home/api/homeApi.ts` のタグ一覧取得を `fetch` 直叩きから `DefaultService.listTagIndexTags()` に変更。
+- Decisions:
+  - Decision: 新規APIは生成クライアント経由で利用し、OpenAPI/生成物をコミット対象に戻す。
+  - Rationale: `verify_spa_api_flow.sh quick` は「仕様・生成物の差分ゼロ」を前提にしており、未同梱だと必ず失敗するため。
+  - Impact: CI の quick verify で検知されていた差分失敗が解消される。
+- Open Questions:
+  - この環境では `tests/e2e` は再実行で成功したため、報告された「e2e落ち」は未同梱生成物による verify ジョブ失敗の誤認だった可能性が高い。
+- Verification:
+  - `python -m pip install -r requirements-dev.txt`（成功）
+  - `python -m playwright install --with-deps chromium`（成功）
+  - `pytest tests/e2e -q`（1 passed）
+  - `pytest tests/api/test_api_contract.py -q`（11 passed）
+  - `npm --prefix frontend run build:bundle`（成功）

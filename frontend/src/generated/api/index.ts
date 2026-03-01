@@ -20,8 +20,10 @@ export type { TagIndexRefreshJobCounters } from './models/TagIndexRefreshJobCoun
 export type { TagIndexRefreshJobStartResponse } from './models/TagIndexRefreshJobStartResponse';
 export { TagIndexRefreshJobStatusResponse } from './models/TagIndexRefreshJobStatusResponse';
 export type { TagIndexRefreshResponse } from './models/TagIndexRefreshResponse';
+export type { TagListResponse } from './models/TagListResponse';
 export { TagQueryRequest } from './models/TagQueryRequest';
 export type { TagQueryResponse } from './models/TagQueryResponse';
+export type { TagSummaryEntry } from './models/TagSummaryEntry';
 export type { ValidationError } from './models/ValidationError';
 
 export { $DeleteImageResponse } from './schemas/$DeleteImageResponse';
@@ -37,8 +39,10 @@ export { $TagIndexRefreshJobCounters } from './schemas/$TagIndexRefreshJobCounte
 export { $TagIndexRefreshJobStartResponse } from './schemas/$TagIndexRefreshJobStartResponse';
 export { $TagIndexRefreshJobStatusResponse } from './schemas/$TagIndexRefreshJobStatusResponse';
 export { $TagIndexRefreshResponse } from './schemas/$TagIndexRefreshResponse';
+export { $TagListResponse } from './schemas/$TagListResponse';
 export { $TagQueryRequest } from './schemas/$TagQueryRequest';
 export { $TagQueryResponse } from './schemas/$TagQueryResponse';
+export { $TagSummaryEntry } from './schemas/$TagSummaryEntry';
 export { $ValidationError } from './schemas/$ValidationError';
 
 export { DefaultService } from './services/DefaultService';
