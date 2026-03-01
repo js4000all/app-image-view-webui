@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import re
 import threading
+import unicodedata
 from dataclasses import dataclass
+from hashlib import blake2s
 from pathlib import Path
-from uuid import uuid4
 
 from app.models.schemas import DirectoryEntry, ImageEntry
 from app.models.types import DirectoryId, DirectoryName, FileId
@@ -34,17 +35,32 @@ class UnsupportedMediaTypeError(ServiceError):
 class ResourceRegistry:
     """Thread-safe ID <-> path registry for directory_id/file_id resolution."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, base_dir: Path) -> None:
+        self.base_dir = base_dir.resolve()
         self._id_to_path: dict[str, Path] = {}
         self._path_to_id: dict[Path, str] = {}
         self._lock = threading.Lock()
+
+    def _normalize_relative_path(self, path: Path) -> str:
+        resolved = path.resolve()
+        rel = resolved.relative_to(self.base_dir)
+        normalized = rel.as_posix()
+        return unicodedata.normalize("NFC", normalized)
+
+    def _generate_resource_id(self, path: Path, *, is_directory: bool) -> str:
+        kind = "dir" if is_directory else "file"
+        normalized = self._normalize_relative_path(path)
+        seed = f"{kind}:v1:{normalized}".encode("utf-8")
+        digest = blake2s(seed).hexdigest()
+        prefix = "d" if is_directory else "f"
+        return f"{prefix}_{digest}"
 
     def register(self, path: Path) -> str:
         resolved_path = path.resolve()
         with self._lock:
             resource_id = self._path_to_id.get(resolved_path)
             if resource_id is None:
-                resource_id = uuid4().hex
+                resource_id = self._generate_resource_id(resolved_path, is_directory=resolved_path.is_dir())
                 self._path_to_id[resolved_path] = resource_id
                 self._id_to_path[resource_id] = resolved_path
             return resource_id

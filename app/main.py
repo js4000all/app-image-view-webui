@@ -21,7 +21,7 @@ DEFAULT_STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 def create_app(settings: AppSettings) -> FastAPI:
     app = FastAPI(title="app-image-view-webui")
     repository = FileSystemRepository()
-    registry = ResourceRegistry()
+    registry = ResourceRegistry(base_dir=settings.base_dir)
     service = ImageService(base_dir=settings.base_dir, repository=repository, registry=registry)
     tag_index_service = TagIndexService(base_dir=settings.base_dir, repository=repository, registry=registry)
 
