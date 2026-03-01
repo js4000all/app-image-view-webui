@@ -1,0 +1,19 @@
+## Context Handoff
+- Goal: タグインデックス再構築を非同期ジョブ化し、ジョブ状態を取得できるAPI契約へ拡張する。
+- Changes:
+  - `app/api/routes.py` に `POST /api/tag-index/refresh-jobs` と `GET /api/tag-index/refresh-jobs/{job_id}` を追加。
+  - 既存 `POST /api/tag-index/refresh` は後方互換の同期APIとして維持し、内部でジョブ開始→完了待ちに変更。
+  - `app/services/tag_index_service.py` にジョブ状態管理（queued/running/succeeded/failed、progress、counters）を追加。
+  - `app/models/schemas.py` にジョブ開始/状態レスポンスのスキーマを追加。
+  - `tests/api/test_api_contract.py` にジョブライフサイクルの契約テストを追加。
+- Decisions:
+  - Decision: ジョブ管理は専用サービス新設ではなく `TagIndexService` 内に集約した。
+  - Rationale: 既存の refresh 実装・状態（indexed counts）と同一責務で扱うほうが最小差分で回帰リスクが低い。
+  - Impact: API利用側は新規ジョブAPIへの段階移行が可能になり、既存クライアントは同期APIを継続利用できる。
+- Open Questions:
+  - 失敗ジョブや完了ジョブの保持期間（TTL）とクリーンアップ方針は未定。
+  - 既存同期APIの正式なdeprecate時期/告知方法は未決。
+- Verification:
+  - `python -m pip install -r requirements-dev.txt` : 成功
+  - `pytest tests/api/test_api_contract.py -q` : 成功（9 passed）
+  - `pytest tests/services/test_tag_index_service.py -q` : 成功（10 passed）

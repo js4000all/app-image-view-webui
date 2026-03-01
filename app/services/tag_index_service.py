@@ -4,10 +4,11 @@ import os
 import sqlite3
 import sys
 import threading
+import uuid
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Callable, Literal
 
 from app.models.types import FileId
 from app.repositories.filesystem import FileSystemRepository
@@ -42,6 +43,27 @@ class IndexedDirectory:
     mtime_ns: int
 
 
+@dataclass
+class RefreshJobCounters:
+    added: int = 0
+    modified: int = 0
+    deleted: int = 0
+    reindexed: int = 0
+
+
+@dataclass
+class RefreshJobState:
+    job_id: str
+    status: Literal["queued", "running", "succeeded", "failed"] = "queued"
+    progress_phase: Literal["queued", "listing", "scanning", "applying", "finalizing", "done", "failed"] = "queued"
+    processed_files: int = 0
+    total_files: int = 0
+    indexed_files: int = 0
+    indexed_tags: int = 0
+    counters: RefreshJobCounters = field(default_factory=RefreshJobCounters)
+    error: str | None = None
+
+
 class TagIndexService:
     def __init__(
         self,
@@ -63,6 +85,10 @@ class TagIndexService:
         self.tag_to_file_ids: dict[str, set[FileId]] = {}
         self.file_id_to_tags: dict[FileId, list[str]] = {}
         self.file_metadata: dict[FileId, IndexedFileMeta] = {}
+
+        self._jobs: dict[str, RefreshJobState] = {}
+        self._job_events: dict[str, threading.Event] = {}
+        self._jobs_lock = threading.Lock()
 
         self._init_db()
 
@@ -97,6 +123,83 @@ class TagIndexService:
                 );
                 """
             )
+
+    def _snapshot_job(self, job_id: str) -> RefreshJobState | None:
+        with self._jobs_lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                return None
+            return RefreshJobState(
+                job_id=job.job_id,
+                status=job.status,
+                progress_phase=job.progress_phase,
+                processed_files=job.processed_files,
+                total_files=job.total_files,
+                indexed_files=job.indexed_files,
+                indexed_tags=job.indexed_tags,
+                counters=RefreshJobCounters(**asdict(job.counters)),
+                error=job.error,
+            )
+
+    def start_refresh_job(self) -> str:
+        job_id = uuid.uuid4().hex
+        with self._jobs_lock:
+            self._jobs[job_id] = RefreshJobState(job_id=job_id)
+            self._job_events[job_id] = threading.Event()
+
+        thread = threading.Thread(target=self._run_refresh_job, args=(job_id,), daemon=True)
+        thread.start()
+        return job_id
+
+    def _run_refresh_job(self, job_id: str) -> None:
+        try:
+            self.refresh_index(progress_callback=lambda **payload: self._update_job(job_id, **payload))
+            self._update_job(
+                job_id,
+                status="succeeded",
+                progress_phase="done",
+                processed_files=0,
+                total_files=0,
+                indexed_files=len(self.file_id_to_tags),
+                indexed_tags=len(self.tag_to_file_ids),
+            )
+        except Exception as exc:
+            self._update_job(
+                job_id,
+                status="failed",
+                progress_phase="failed",
+                error=str(exc),
+            )
+        finally:
+            event = self._job_events.get(job_id)
+            if event is not None:
+                event.set()
+
+    def _update_job(self, job_id: str, **fields: object) -> None:
+        with self._jobs_lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                return
+            for key, value in fields.items():
+                if value is None:
+                    continue
+                if key == "counters" and isinstance(value, dict):
+                    job.counters = RefreshJobCounters(**value)
+                    continue
+                setattr(job, key, value)
+
+    def get_refresh_job_status(self, job_id: str) -> RefreshJobState | None:
+        return self._snapshot_job(job_id)
+
+    def wait_for_job(self, job_id: str) -> RefreshJobState:
+        event = self._job_events.get(job_id)
+        if event is None:
+            raise KeyError(job_id)
+        event.wait()
+        status = self._snapshot_job(job_id)
+        if status is None:
+            raise KeyError(job_id)
+        return status
 
     def build_index(self, base_dir: Path | None = None) -> None:
         target_base = (base_dir or self.base_dir).resolve()
@@ -235,9 +338,11 @@ class TagIndexService:
             rows.append((str(directory.resolve()), stat_result.st_mtime_ns))
         return rows
 
-    def refresh_index(self) -> None:
+    def refresh_index(self, progress_callback: Callable[..., None] | None = None) -> None:
         target_base = self.base_dir.resolve()
         directory_rows = self._collect_directory_rows_with_progress(target_base)
+        if progress_callback is not None:
+            progress_callback(status="running", progress_phase="listing")
         current_directories = {path: mtime_ns for path, mtime_ns in directory_rows}
 
         with self._connect() as conn:
@@ -273,13 +378,20 @@ class TagIndexService:
                 unit="file",
                 file=sys.stdout,
             )
-            for image_path in scan_progress:
+            for index, image_path in enumerate(scan_progress, start=1):
                 resolved_path = image_path.resolve()
                 stat_result = resolved_path.stat()
                 current_files[str(resolved_path)] = (
                     resolved_path,
                     FileFingerprint(mtime_ns=stat_result.st_mtime_ns, size=stat_result.st_size),
                 )
+                if progress_callback is not None:
+                    progress_callback(
+                        status="running",
+                        progress_phase="scanning",
+                        processed_files=index,
+                        total_files=len(changed_directory_files),
+                    )
             scan_progress.close()
 
             db_files_in_changed_dirs = {
@@ -304,13 +416,35 @@ class TagIndexService:
 
             reindex_paths = added_paths + modified_paths
             apply_total = len(deleted_paths) + len(reindex_paths)
+            if progress_callback is not None:
+                progress_callback(
+                    status="running",
+                    progress_phase="applying",
+                    processed_files=0,
+                    total_files=apply_total,
+                    counters={
+                        "added": len(added_paths),
+                        "modified": len(modified_paths),
+                        "deleted": len(deleted_paths),
+                        "reindexed": len(reindex_paths),
+                    },
+                )
             apply_progress = tqdm(total=apply_total, desc="[tag-index] refresh apply", unit="file", file=sys.stdout)
 
+            applied_count = 0
             for path in deleted_paths:
                 file_id = db_files[path].file_id
                 conn.execute("DELETE FROM file_tags WHERE file_id = ?", (file_id,))
                 conn.execute("DELETE FROM indexed_files WHERE file_id = ?", (file_id,))
                 apply_progress.update(1)
+                applied_count += 1
+                if progress_callback is not None:
+                    progress_callback(
+                        status="running",
+                        progress_phase="applying",
+                        processed_files=applied_count,
+                        total_files=apply_total,
+                    )
 
             for path in reindex_paths:
                 image_path, fingerprint = current_files[path]
@@ -323,6 +457,14 @@ class TagIndexService:
                 prompt_result = extract_generation_prompts(image_path)
                 positive_tags = _normalize_tags(prompt_result.positive if prompt_result else [])
                 apply_progress.update(1)
+                applied_count += 1
+                if progress_callback is not None:
+                    progress_callback(
+                        status="running",
+                        progress_phase="applying",
+                        processed_files=applied_count,
+                        total_files=apply_total,
+                    )
                 if not positive_tags:
                     continue
 
@@ -342,6 +484,13 @@ class TagIndexService:
             apply_progress.close()
 
         self.load_index_from_db()
+        if progress_callback is not None:
+            progress_callback(
+                status="running",
+                progress_phase="finalizing",
+                indexed_files=len(self.file_id_to_tags),
+                indexed_tags=len(self.tag_to_file_ids),
+            )
 
     def query(self, tags: list[str], mode: QueryMode) -> list[FileId]:
         normalized_tags = _normalize_tags(tags)

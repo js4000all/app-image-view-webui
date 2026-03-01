@@ -13,6 +13,8 @@ from app.models.schemas import (
     RenameDirectoryRequest,
     RenameDirectoryResponse,
     SubdirectoriesResponse,
+    TagIndexRefreshJobStartResponse,
+    TagIndexRefreshJobStatusResponse,
     TagIndexRefreshResponse,
     TagQueryRequest,
     TagQueryResponse,
@@ -127,12 +129,50 @@ def create_api_router(service: ImageService, tag_index_service: TagIndexService)
         )
 
 
+    @router.post("/tag-index/refresh-jobs", response_model=TagIndexRefreshJobStartResponse)
+    def start_tag_index_refresh_job() -> TagIndexRefreshJobStartResponse:
+        job_id = tag_index_service.start_refresh_job()
+        return TagIndexRefreshJobStartResponse(job_id=job_id)
+
+    @router.get("/tag-index/refresh-jobs/{job_id}", response_model=TagIndexRefreshJobStatusResponse)
+    def get_tag_index_refresh_job(job_id: str) -> TagIndexRefreshJobStatusResponse:
+        status = tag_index_service.get_refresh_job_status(job_id)
+        if status is None:
+            raise HTTPException(status_code=HTTPStatus.NOT_FOUND)
+
+        return TagIndexRefreshJobStatusResponse(
+            job_id=status.job_id,
+            status=status.status,
+            progress_phase=status.progress_phase,
+            processed_files=status.processed_files,
+            total_files=status.total_files,
+            indexed_files=status.indexed_files,
+            indexed_tags=status.indexed_tags,
+            counters={
+                "added": status.counters.added,
+                "modified": status.counters.modified,
+                "deleted": status.counters.deleted,
+                "reindexed": status.counters.reindexed,
+            },
+            error=status.error,
+        )
+
     @router.post("/tag-index/refresh", response_model=TagIndexRefreshResponse)
     def refresh_tag_index() -> TagIndexRefreshResponse:
-        tag_index_service.refresh_index()
+        """Backward-compatible synchronous refresh API.
+
+        New clients should migrate to POST /api/tag-index/refresh-jobs and
+        poll GET /api/tag-index/refresh-jobs/{job_id}. This endpoint currently
+        waits for job completion and returns the final counts.
+        """
+        job_id = tag_index_service.start_refresh_job()
+        status = tag_index_service.wait_for_job(job_id)
+        if status.status == "failed":
+            raise HTTPException(status_code=HTTPStatus.INTERNAL_SERVER_ERROR, detail=status.error)
+
         return TagIndexRefreshResponse(
-            indexed_files=len(tag_index_service.file_id_to_tags),
-            indexed_tags=len(tag_index_service.tag_to_file_ids),
+            indexed_files=status.indexed_files,
+            indexed_tags=status.indexed_tags,
         )
 
     @router.post("/tag-index/query", response_model=TagQueryResponse)
