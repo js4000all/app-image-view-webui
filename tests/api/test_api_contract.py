@@ -237,7 +237,7 @@ def test_tag_index_query_works_on_startup_by_loading_db_without_rebuild(tmp_path
     builder = TagIndexService(
         base_dir=indexed_dir,
         repository=FileSystemRepository(),
-        registry=ResourceRegistry(),
+        registry=ResourceRegistry(base_dir=indexed_dir),
         db_path=tmp_path / "tag_index.sqlite3",
     )
     builder.build_index(indexed_dir)

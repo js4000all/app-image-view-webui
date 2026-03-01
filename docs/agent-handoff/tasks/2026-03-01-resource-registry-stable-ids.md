@@ -1,0 +1,34 @@
+## Context Handoff
+- Goal: `ResourceRegistry` のID生成を再起動で安定する決定的方式へ変更し、`TagIndexService` の `build_index` / `refresh_index` で `file_id` が再起動前後で一致することを検証する。
+- Changes:
+  - `app/services/image_service.py`: `ResourceRegistry` に `base_dir` を保持させ、`base_dir` からの正規化相対パス（NFC + POSIX）と `file/dir` 種別+`v1` prefix を種に `blake2s` でID生成する処理を追加。返却IDを `f_` / `d_` prefix 付きへ変更。
+  - `app/main.py`: `ResourceRegistry(base_dir=settings.base_dir)` で初期化するよう更新。
+  - `tests/services/test_tag_index_service.py`: 既存初期化呼び出しを新シグネチャに合わせ、`build_index` と `refresh_index` 後の `file_id` が再起動をまたいで一致する回帰テストを追加。
+  - `tests/api/test_api_contract.py`: `ResourceRegistry` 初期化の引数を新シグネチャに合わせて更新。
+- Decisions:
+  - Decision: ID種に `"file:v1:"` / `"dir:v1:"` を含め、`f_` / `d_` をID文字列に付与。
+  - Rationale: ファイルIDとディレクトリIDの混同を防ぎつつ、将来のバージョン変更時に互換管理しやすくするため。
+  - Impact: `ResourceRegistry.register` を介して採番される `file_id` / `directory_id` の形式が変わる。
+- Open Questions:
+  - 既存DBの `file_id` を新形式へ移行するマイグレーションは未対応（現状は再構築で整合）。
+- Verification:
+  - `pytest tests/services/test_tag_index_service.py -q` : 成功（11 passed）。
+  - `pytest tests/services/test_tag_index_service.py tests/api/test_api_contract.py -q` : 失敗（`httpx` 未導入で `tests/api/conftest.py` import error）。
+
+## Follow-up (pytest failure investigation)
+- Goal: `pytest` 失敗原因の切り分けと再実行での解消確認。
+- Changes:
+  - コード変更はなし（環境セットアップを実施）。
+- Decisions:
+  - Decision: AGENTS.md/README の手順どおり、開発依存と Playwright ブラウザ実体を先に導入してから再実行。
+  - Rationale: 失敗は実装不具合ではなくテスト実行環境不足（`httpx` 未導入、Chromium 未導入）だったため。
+  - Impact: 同環境で `pytest -q` 全件成功を確認。
+- Open Questions:
+  - なし。
+- Verification:
+  - `pytest -q`（失敗）: `ModuleNotFoundError: No module named 'httpx'`。
+  - `python -m pip install -r requirements-dev.txt`（成功）。
+  - `pytest tests/services/test_tag_index_service.py tests/api/test_api_contract.py -q`（成功, 22 passed）。
+  - `pytest -q`（失敗）: Playwright Chromium 実体未導入エラー。
+  - `python -m playwright install --with-deps chromium`（成功）。
+  - `pytest -q`（成功, 28 passed）。

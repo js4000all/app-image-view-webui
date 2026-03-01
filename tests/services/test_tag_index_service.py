@@ -25,7 +25,7 @@ def test_build_index_and_query_with_and_or_modes(tmp_path: Path):
     service = TagIndexService(
         base_dir=base_dir,
         repository=FileSystemRepository(),
-        registry=ResourceRegistry(),
+        registry=ResourceRegistry(base_dir=base_dir),
         db_path=tmp_path / "tag_index.sqlite3",
     )
 
@@ -55,7 +55,7 @@ def test_build_index_outputs_progress_bar(tmp_path: Path, capsys):
     service = TagIndexService(
         base_dir=base_dir,
         repository=FileSystemRepository(),
-        registry=ResourceRegistry(),
+        registry=ResourceRegistry(base_dir=base_dir),
         db_path=tmp_path / "tag_index.sqlite3",
     )
 
@@ -77,7 +77,7 @@ def test_load_index_from_db_restores_in_memory_state(tmp_path: Path):
     builder = TagIndexService(
         base_dir=base_dir,
         repository=FileSystemRepository(),
-        registry=ResourceRegistry(),
+        registry=ResourceRegistry(base_dir=base_dir),
         db_path=db_path,
     )
     builder.build_index(base_dir)
@@ -85,7 +85,7 @@ def test_load_index_from_db_restores_in_memory_state(tmp_path: Path):
     loader = TagIndexService(
         base_dir=base_dir,
         repository=FileSystemRepository(),
-        registry=ResourceRegistry(),
+        registry=ResourceRegistry(base_dir=base_dir),
         db_path=db_path,
     )
     loaded_count = loader.load_index_from_db()
@@ -115,7 +115,7 @@ def test_refresh_index_outputs_scan_and_apply_progress(tmp_path: Path, capsys, m
     service = TagIndexService(
         base_dir=base_dir,
         repository=FileSystemRepository(),
-        registry=ResourceRegistry(),
+        registry=ResourceRegistry(base_dir=base_dir),
         db_path=tmp_path / "tag_index.sqlite3",
     )
     service.build_index(base_dir)
@@ -149,7 +149,7 @@ def test_refresh_index_only_indexes_added_files(tmp_path: Path, monkeypatch):
     service = TagIndexService(
         base_dir=base_dir,
         repository=FileSystemRepository(),
-        registry=ResourceRegistry(),
+        registry=ResourceRegistry(base_dir=base_dir),
         db_path=tmp_path / "tag_index.sqlite3",
     )
     service.build_index(base_dir)
@@ -188,7 +188,7 @@ def test_refresh_index_skips_reextract_when_directory_mtime_unchanged(tmp_path: 
     service = TagIndexService(
         base_dir=base_dir,
         repository=FileSystemRepository(),
-        registry=ResourceRegistry(),
+        registry=ResourceRegistry(base_dir=base_dir),
         db_path=tmp_path / "tag_index.sqlite3",
     )
     service.build_index(base_dir)
@@ -224,7 +224,7 @@ def test_refresh_index_removes_deleted_files_from_results(tmp_path: Path, monkey
     service = TagIndexService(
         base_dir=base_dir,
         repository=FileSystemRepository(),
-        registry=ResourceRegistry(),
+        registry=ResourceRegistry(base_dir=base_dir),
         db_path=db_path,
     )
     service.build_index(base_dir)
@@ -265,7 +265,7 @@ def test_build_index_skips_failed_extraction_and_reports_paths(tmp_path: Path, c
     service = TagIndexService(
         base_dir=base_dir,
         repository=FileSystemRepository(),
-        registry=ResourceRegistry(),
+        registry=ResourceRegistry(base_dir=base_dir),
         db_path=tmp_path / "tag_index.sqlite3",
         max_workers=2,
     )
@@ -284,7 +284,7 @@ def test_build_index_rejects_invalid_max_workers(tmp_path: Path):
         TagIndexService(
             base_dir=tmp_path,
             repository=FileSystemRepository(),
-            registry=ResourceRegistry(),
+            registry=ResourceRegistry(base_dir=tmp_path),
             db_path=tmp_path / "tag_index.sqlite3",
             max_workers=0,
         )
@@ -315,7 +315,7 @@ def test_refresh_index_reextracts_only_changed_directories(tmp_path: Path, monke
     service = TagIndexService(
         base_dir=base_dir,
         repository=FileSystemRepository(),
-        registry=ResourceRegistry(),
+        registry=ResourceRegistry(base_dir=base_dir),
         db_path=tmp_path / "tag_index.sqlite3",
     )
     service.build_index(base_dir)
@@ -327,3 +327,53 @@ def test_refresh_index_reextracts_only_changed_directories(tmp_path: Path, monke
 
     assert extracted == ["002.png"]
     assert len(service.query(["tag-101"], "and")) == 1
+
+
+def test_file_ids_are_stable_across_restarts_for_build_and_refresh(tmp_path: Path, monkeypatch):
+    base_dir = tmp_path / "images"
+    base_dir.mkdir()
+    file1 = base_dir / "001.png"
+    file2 = base_dir / "002.png"
+    file1.write_bytes(b"a")
+    file2.write_bytes(b"b")
+
+    def fake_extract(image_path: Path):
+        class _Result:
+            positive = [f"tag-{image_path.stem}"]
+
+        return _Result()
+
+    monkeypatch.setattr("app.services.tag_index_service.extract_generation_prompts", fake_extract)
+
+    db_path = tmp_path / "tag_index.sqlite3"
+
+    first_service = TagIndexService(
+        base_dir=base_dir,
+        repository=FileSystemRepository(),
+        registry=ResourceRegistry(base_dir=base_dir),
+        db_path=db_path,
+    )
+    first_service.build_index(base_dir)
+    built_file_ids = set(first_service.file_id_to_tags.keys())
+
+    second_service = TagIndexService(
+        base_dir=base_dir,
+        repository=FileSystemRepository(),
+        registry=ResourceRegistry(base_dir=base_dir),
+        db_path=db_path,
+    )
+    second_service.build_index(base_dir)
+    rebuilt_file_ids = set(second_service.file_id_to_tags.keys())
+
+    third_service = TagIndexService(
+        base_dir=base_dir,
+        repository=FileSystemRepository(),
+        registry=ResourceRegistry(base_dir=base_dir),
+        db_path=db_path,
+    )
+    third_service.load_index_from_db()
+    third_service.refresh_index()
+    refreshed_file_ids = set(third_service.file_id_to_tags.keys())
+
+    assert built_file_ids == rebuilt_file_ids
+    assert built_file_ids == refreshed_file_ids
