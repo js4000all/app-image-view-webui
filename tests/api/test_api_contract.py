@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -151,6 +152,43 @@ def test_tag_index_query_and_refresh(api_client_factory, copied_prompt_image_roo
     refreshed = refresh_response.json()
     assert refreshed["indexed_files"] == 5
     assert refreshed["indexed_tags"] >= 8
+
+
+def test_tag_index_refresh_job_lifecycle(api_client_factory, copied_prompt_image_root):
+    client = api_client_factory(copied_prompt_image_root)
+
+    start_response = client.post("/api/tag-index/refresh-jobs")
+    assert start_response.status_code == 200
+    job_id = start_response.json()["job_id"]
+    assert isinstance(job_id, str)
+
+    terminal = None
+    for _ in range(60):
+        status_response = client.get(f"/api/tag-index/refresh-jobs/{job_id}")
+        assert status_response.status_code == 200
+        payload = status_response.json()
+
+        assert payload["job_id"] == job_id
+        assert payload["status"] in {"queued", "running", "succeeded", "failed"}
+        assert payload["progress_phase"] in {"queued", "listing", "scanning", "applying", "finalizing", "done", "failed"}
+
+        counters = payload["counters"]
+        assert {"added", "modified", "deleted", "reindexed"}.issubset(counters.keys())
+        assert payload["processed_files"] >= 0
+        assert payload["total_files"] >= 0
+
+        if payload["status"] in {"succeeded", "failed"}:
+            terminal = payload
+            break
+
+        time.sleep(0.05)
+
+    assert terminal is not None
+    assert terminal["status"] == "succeeded"
+    assert terminal["progress_phase"] == "done"
+    assert terminal["indexed_files"] == 5
+    assert terminal["indexed_tags"] >= 8
+    assert terminal["error"] is None
 
 
 def test_tag_index_query_works_on_startup_by_loading_db_without_rebuild(tmp_path, monkeypatch):

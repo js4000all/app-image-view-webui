@@ -46,6 +46,29 @@ class TagIndexRefreshResponse(BaseModel):
     indexed_tags: int
 
 
+class TagIndexRefreshJobStartResponse(BaseModel):
+    job_id: str
+
+
+class TagIndexRefreshJobCounters(BaseModel):
+    added: int
+    modified: int
+    deleted: int
+    reindexed: int
+
+
+class TagIndexRefreshJobStatusResponse(BaseModel):
+    job_id: str
+    status: Literal["queued", "running", "succeeded", "failed"]
+    progress_phase: Literal["queued", "listing", "scanning", "applying", "finalizing", "done", "failed"]
+    processed_files: int
+    total_files: int
+    indexed_files: int
+    indexed_tags: int
+    counters: TagIndexRefreshJobCounters
+    error: str | None = None
+
+
 class TagQueryRequest(BaseModel):
     tags: list[str]
     mode: Literal["and", "or"] = "or"
