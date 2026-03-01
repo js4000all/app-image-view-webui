@@ -1,6 +1,11 @@
 import { DefaultService } from '../../../generated/api'
 import type { DirectoryEntry, ImageEntry } from '../../../types/home'
 
+export type TagSummary = {
+  tag: string
+  count: number
+}
+
 export async function fetchSubdirectories(): Promise<DirectoryEntry[]> {
   const data = await DefaultService.listSubdirectories()
   return data.subdirectories
@@ -16,4 +21,14 @@ export async function renameSubdirectory(directoryId: string, newName: string): 
     directoryId,
     requestBody: { new_name: newName }
   })
+}
+
+export async function fetchTagSummaries(): Promise<TagSummary[]> {
+  const response = await fetch('/api/tag-index/tags')
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`)
+  }
+
+  const data = await response.json() as { tags: TagSummary[] }
+  return data.tags
 }

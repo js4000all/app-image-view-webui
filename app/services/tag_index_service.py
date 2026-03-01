@@ -508,6 +508,12 @@ class TagIndexService:
 
         return sorted(matched)
 
+    def list_tags(self) -> list[tuple[str, int]]:
+        return sorted(
+            ((tag, len(file_ids)) for tag, file_ids in self.tag_to_file_ids.items()),
+            key=lambda item: (-item[1], item[0]),
+        )
+
 
 def _normalize_tags(tags: list[str]) -> list[str]:
     normalized: list[str] = []
