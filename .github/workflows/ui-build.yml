@@ -12,9 +12,6 @@ jobs:
   frontend-build:
     if: github.event_name == 'push' || !startsWith(github.event.pull_request.title, 'docs:')
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,37 +19,35 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          python-version: '3.11'
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install runtime dependencies (OpenAPI export)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Build and bundle static artifact
-        run: npm run build:bundle
+      - name: Run consolidated API flow verification (quick)
+        run: ./scripts/verify_spa_api_flow.sh quick
 
       - name: Commit bundled artifact to PR branch
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        working-directory: .
         run: |
-          if git diff --quiet -- static/home-app; then
-            echo "No artifact changes to commit"
+          if git diff --quiet -- static/home-app frontend/openapi/openapi.json frontend/src/generated/api; then
+            echo "No generated changes to commit"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add static/home-app
-          git commit -m "chore: update bundled react artifact [skip ci]"
+          git add static/home-app frontend/openapi/openapi.json frontend/src/generated/api
+          git commit -m "chore: update generated SPA artifacts [skip ci]"
           git push origin HEAD:${{ github.head_ref }}
 
-      - name: Verify artifact is up-to-date (push/main and external PR)
+      - name: Verify generated artifacts are up-to-date (push/main and external PR)
         if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
-        working-directory: .
-        run: git diff --exit-code -- static/home-app
+        run: git diff --exit-code -- static/home-app frontend/openapi/openapi.json frontend/src/generated/api
 
   ui-e2e:
     if: github.event_name == 'push' || !startsWith(github.event.pull_request.title, 'docs:')

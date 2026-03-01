@@ -34,11 +34,19 @@ from app.services.tag_index_service import TagIndexService
 def create_api_router(service: ImageService, tag_index_service: TagIndexService) -> APIRouter:
     router = APIRouter(prefix="/api")
 
-    @router.get("/subdirectories", response_model=SubdirectoriesResponse)
+    @router.get(
+        "/subdirectories",
+        response_model=SubdirectoriesResponse,
+        operation_id="listSubdirectories",
+    )
     def get_subdirectories() -> SubdirectoriesResponse:
         return SubdirectoriesResponse(subdirectories=service.list_subdirectories())
 
-    @router.get("/images/{directory_id}", response_model=ImagesResponse)
+    @router.get(
+        "/images/{directory_id}",
+        response_model=ImagesResponse,
+        operation_id="listImages",
+    )
     def get_images(directory_id: DirectoryId) -> ImagesResponse:
         try:
             directory, images = service.list_images(directory_id)
@@ -88,15 +96,19 @@ def create_api_router(service: ImageService, tag_index_service: TagIndexService)
 
         return FileResponse(path=file_path, media_type=content_type, headers=headers)
 
-    @router.get("/image/{file_id}")
+    @router.get("/image/{file_id}", operation_id="getImage")
     def get_image(file_id: FileId, request: Request) -> Response:
         return _build_image_response(file_id=file_id, request=request, include_body=True)
 
-    @router.head("/image/{file_id}")
+    @router.head("/image/{file_id}", operation_id="headImage")
     def head_image(file_id: FileId, request: Request) -> Response:
         return _build_image_response(file_id=file_id, request=request, include_body=False)
 
-    @router.delete("/image/{file_id}", response_model=DeleteImageResponse)
+    @router.delete(
+        "/image/{file_id}",
+        response_model=DeleteImageResponse,
+        operation_id="deleteImage",
+    )
     def delete_image(file_id: FileId) -> DeleteImageResponse:
         try:
             deleted_file = service.delete_image(file_id)
@@ -109,7 +121,11 @@ def create_api_router(service: ImageService, tag_index_service: TagIndexService)
 
         return DeleteImageResponse(deleted=deleted_file.name, file_id=file_id)
 
-    @router.put("/subdirectories/{directory_id}", response_model=RenameDirectoryResponse)
+    @router.put(
+        "/subdirectories/{directory_id}",
+        response_model=RenameDirectoryResponse,
+        operation_id="renameSubdirectory",
+    )
     def rename_subdirectory(directory_id: DirectoryId, payload: RenameDirectoryRequest) -> RenameDirectoryResponse:
         try:
             new_directory_id, renamed_from, renamed_to = service.rename_subdirectory(directory_id, payload.new_name)
@@ -129,12 +145,20 @@ def create_api_router(service: ImageService, tag_index_service: TagIndexService)
         )
 
 
-    @router.post("/tag-index/refresh-jobs", response_model=TagIndexRefreshJobStartResponse)
+    @router.post(
+        "/tag-index/refresh-jobs",
+        response_model=TagIndexRefreshJobStartResponse,
+        operation_id="startTagIndexRefreshJob",
+    )
     def start_tag_index_refresh_job() -> TagIndexRefreshJobStartResponse:
         job_id = tag_index_service.start_refresh_job()
         return TagIndexRefreshJobStartResponse(job_id=job_id)
 
-    @router.get("/tag-index/refresh-jobs/{job_id}", response_model=TagIndexRefreshJobStatusResponse)
+    @router.get(
+        "/tag-index/refresh-jobs/{job_id}",
+        response_model=TagIndexRefreshJobStatusResponse,
+        operation_id="getTagIndexRefreshJob",
+    )
     def get_tag_index_refresh_job(job_id: str) -> TagIndexRefreshJobStatusResponse:
         status = tag_index_service.get_refresh_job_status(job_id)
         if status is None:
@@ -157,7 +181,11 @@ def create_api_router(service: ImageService, tag_index_service: TagIndexService)
             error=status.error,
         )
 
-    @router.post("/tag-index/refresh", response_model=TagIndexRefreshResponse)
+    @router.post(
+        "/tag-index/refresh",
+        response_model=TagIndexRefreshResponse,
+        operation_id="refreshTagIndex",
+    )
     def refresh_tag_index() -> TagIndexRefreshResponse:
         """Backward-compatible synchronous refresh API.
 
@@ -175,7 +203,11 @@ def create_api_router(service: ImageService, tag_index_service: TagIndexService)
             indexed_tags=status.indexed_tags,
         )
 
-    @router.post("/tag-index/query", response_model=TagQueryResponse)
+    @router.post(
+        "/tag-index/query",
+        response_model=TagQueryResponse,
+        operation_id="queryTagIndex",
+    )
     def query_tag_index(payload: TagQueryRequest) -> TagQueryResponse:
         file_ids = tag_index_service.query(payload.tags, payload.mode)
         return TagQueryResponse(file_ids=file_ids, total=len(file_ids))
