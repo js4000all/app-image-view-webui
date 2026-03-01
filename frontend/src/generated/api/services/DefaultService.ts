@@ -3,6 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 import type { DeleteImageResponse } from '../models/DeleteImageResponse';
+import type { ImageMetadataResponse } from '../models/ImageMetadataResponse';
 import type { ImagesResponse } from '../models/ImagesResponse';
 import type { RenameDirectoryRequest } from '../models/RenameDirectoryRequest';
 import type { RenameDirectoryResponse } from '../models/RenameDirectoryResponse';
@@ -25,6 +26,27 @@ export class DefaultService {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/',
+        });
+    }
+    /**
+     * Get Image Metadata
+     * @returns ImageMetadataResponse Successful Response
+     * @throws ApiError
+     */
+    public static getImageMetadata({
+        fileId,
+    }: {
+        fileId: string,
+    }): CancelablePromise<ImageMetadataResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/image-meta/{file_id}',
+            path: {
+                'file_id': fileId,
+            },
+            errors: {
+                422: `Validation Error`,
+            },
         });
     }
     /**

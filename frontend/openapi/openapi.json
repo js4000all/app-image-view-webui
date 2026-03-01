@@ -74,6 +74,38 @@
         "title": "ImageEntry",
         "type": "object"
       },
+      "ImageMetadataResponse": {
+        "properties": {
+          "directory_id": {
+            "title": "Directory Id",
+            "type": "string"
+          },
+          "directory_name": {
+            "minLength": 1,
+            "pattern": "^[^/\\\\]+$",
+            "title": "Directory Name",
+            "type": "string"
+          },
+          "file_id": {
+            "title": "File Id",
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "pattern": "^[^/\\\\]+$",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file_id",
+          "name",
+          "directory_id",
+          "directory_name"
+        ],
+        "title": "ImageMetadataResponse",
+        "type": "object"
+      },
       "ImagesResponse": {
         "properties": {
           "directory_id": {
@@ -400,6 +432,45 @@
           }
         },
         "summary": "Home"
+      }
+    },
+    "/api/image-meta/{file_id}": {
+      "get": {
+        "operationId": "getImageMetadata",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "file_id",
+            "required": true,
+            "schema": {
+              "title": "File Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageMetadataResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Image Metadata"
       }
     },
     "/api/image/{file_id}": {

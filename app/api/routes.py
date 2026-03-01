@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 
 from app.models.schemas import (
     DeleteImageResponse,
+    ImageMetadataResponse,
     ImagesResponse,
     RenameDirectoryRequest,
     RenameDirectoryResponse,
@@ -103,6 +104,26 @@ def create_api_router(service: ImageService, tag_index_service: TagIndexService)
     @router.head("/image/{file_id}", operation_id="headImage")
     def head_image(file_id: FileId, request: Request) -> Response:
         return _build_image_response(file_id=file_id, request=request, include_body=False)
+
+    @router.get(
+        "/image-meta/{file_id}",
+        response_model=ImageMetadataResponse,
+        operation_id="getImageMetadata",
+    )
+    def get_image_metadata(file_id: FileId) -> ImageMetadataResponse:
+        try:
+            directory_id, directory_name, image = service.get_image_metadata(file_id)
+        except ResourceNotFoundError as exc:
+            raise HTTPException(status_code=HTTPStatus.NOT_FOUND) from exc
+        except UnsupportedMediaTypeError as exc:
+            raise HTTPException(status_code=HTTPStatus.UNSUPPORTED_MEDIA_TYPE) from exc
+
+        return ImageMetadataResponse(
+            file_id=image.file_id,
+            name=image.name,
+            directory_id=directory_id,
+            directory_name=directory_name,
+        )
 
     @router.delete(
         "/image/{file_id}",

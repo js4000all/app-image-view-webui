@@ -1,225 +1,292 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
-import { deleteViewerImage, fetchViewerDirectories, fetchViewerImages } from '../api/viewerApi'
-import type { ViewerDirectoryEntry, ViewerImageEntry } from '../../../types/viewer'
+import {
+  deleteViewerImage,
+  fetchViewerDirectories,
+  fetchViewerImageMetadata,
+  fetchViewerImages,
+} from '../api/viewerApi'
+import type { ViewerImageEntry, ViewerImageMetadata } from '../../../types/viewer'
+
+export type ViewerFileIdListProvider = () => Promise<string[]>
+export type ViewerImageMetadataProvider = (fileId: string) => Promise<ViewerImageMetadata>
+export type ViewerImageDeleteHandler = (fileId: string) => Promise<void>
+
+type UseViewerOptions = {
+  listFileIds?: ViewerFileIdListProvider
+  getImageMetadata?: ViewerImageMetadataProvider
+  deleteImageById?: ViewerImageDeleteHandler
+  allowImageDelete?: boolean
+}
 
 type UseViewerState = {
-  currentDirectory: ViewerDirectoryEntry | null
-  images: ViewerImageEntry[]
+  fileIds: string[]
+  metadataByFileId: Record<string, ViewerImageMetadata>
   currentIndex: number
   status: string
 }
 
-export function useViewer() {
+async function resolveDefaultFileIds(): Promise<string[]> {
+  const subdirectories = await fetchViewerDirectories()
+  if (subdirectories.length === 0) {
+    return []
+  }
+
+  const images = await fetchViewerImages(subdirectories[0].directory_id)
+  return images.map((image) => image.file_id)
+}
+
+function toStatus(index: number, total: number, fileId: string, metadataByFileId: Record<string, ViewerImageMetadata>): string {
+  const name = metadataByFileId[fileId]?.name ?? fileId
+  return `${index + 1} / ${total}: ${name}`
+}
+
+export function useViewer(options: UseViewerOptions = {}) {
+  const {
+    listFileIds = resolveDefaultFileIds,
+    getImageMetadata = fetchViewerImageMetadata,
+    deleteImageById = deleteViewerImage,
+    allowImageDelete = true,
+  } = options
+
   const [state, setState] = useState<UseViewerState>({
-    currentDirectory: null,
-    images: [],
+    fileIds: [],
+    metadataByFileId: {},
     currentIndex: -1,
-    status: '読み込み中...'
+    status: '読み込み中...',
   })
 
   const updateStatus = useCallback((status: string) => {
     setState((current) => ({ ...current, status }))
   }, [])
 
-  const loadImages = useCallback(
-    async (directory: ViewerDirectoryEntry) => {
+  const loadImages = useCallback(async () => {
+    setState((current) => ({
+      ...current,
+      fileIds: [],
+      currentIndex: -1,
+    }))
+
+    try {
+      const fileIds = await listFileIds()
+      if (fileIds.length === 0) {
+        setState((current) => ({
+          ...current,
+          fileIds: [],
+          currentIndex: -1,
+          status: '画像が見つかりません。',
+        }))
+        return
+      }
+
+      const firstFileId = fileIds[0]
       setState((current) => ({
         ...current,
-        currentDirectory: directory,
-        images: [],
-        currentIndex: -1
+        fileIds,
+        currentIndex: 0,
+        status: toStatus(0, fileIds.length, firstFileId, current.metadataByFileId),
       }))
-
-      try {
-        const images = await fetchViewerImages(directory.directory_id)
-        if (images.length === 0) {
-          setState((current) => ({
-            ...current,
-            currentDirectory: directory,
-            images: [],
-            currentIndex: -1,
-            status: '画像が見つかりません。'
-          }))
-          return
-        }
-
-        setState((current) => ({
-          ...current,
-          currentDirectory: directory,
-          images,
-          currentIndex: 0,
-          status: `1 / ${images.length}: ${images[0].name}`
-        }))
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-        setState((current) => ({
-          ...current,
-          currentDirectory: directory,
-          images: [],
-          currentIndex: -1,
-          status: `画像一覧の取得に失敗しました: ${message}`
-        }))
-      }
-    },
-    []
-  )
-
-  const initialize = useCallback(async (requestedDirectoryId: string) => {
-    try {
-      const subdirectories = await fetchViewerDirectories()
-      if (subdirectories.length === 0) {
-        throw new Error('サブディレクトリがありません。')
-      }
-
-      const directory = requestedDirectoryId
-        ? subdirectories.find((entry) => entry.directory_id === requestedDirectoryId)
-        : subdirectories[0]
-
-      if (!directory) {
-        throw new Error('指定されたフォルダが見つかりません。')
-      }
-
-      await loadImages(directory)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       setState((current) => ({
         ...current,
-        currentDirectory: null,
-        images: [],
+        fileIds: [],
         currentIndex: -1,
-        status: message
+        status: `画像一覧の取得に失敗しました: ${message}`,
       }))
     }
+  }, [listFileIds])
+
+  const initialize = useCallback(async () => {
+    await loadImages()
   }, [loadImages])
 
-  const moveNext = useCallback(() => {
-    void (async () => {
-      if (state.images.length === 0) {
+  const ensureMetadata = useCallback(
+    async (fileId: string) => {
+      if (!fileId) {
         return
       }
 
-      if (state.currentIndex < state.images.length - 1) {
-        const nextIndex = state.currentIndex + 1
-        const nextImage = state.images[nextIndex]
-        setState((current) => ({
-          ...current,
-          currentIndex: nextIndex,
-          status: `${nextIndex + 1} / ${state.images.length}: ${nextImage.name}`
-        }))
-        return
-      }
-
-      if (!state.currentDirectory) {
+      if (state.metadataByFileId[fileId]) {
         return
       }
 
       try {
-        const latestImages = await fetchViewerImages(state.currentDirectory.directory_id)
-        if (latestImages.length === 0) {
+        const metadata = await getImageMetadata(fileId)
+        setState((current) => {
+          if (current.metadataByFileId[fileId]) {
+            return current
+          }
+
+          const metadataByFileId = {
+            ...current.metadataByFileId,
+            [fileId]: metadata,
+          }
+
+          if (current.currentIndex < 0 || current.currentIndex >= current.fileIds.length) {
+            return {
+              ...current,
+              metadataByFileId,
+            }
+          }
+
+          const currentFileId = current.fileIds[current.currentIndex]
+          return {
+            ...current,
+            metadataByFileId,
+            status: toStatus(current.currentIndex, current.fileIds.length, currentFileId, metadataByFileId),
+          }
+        })
+      } catch {
+        // metadata resolution is best-effort
+      }
+    },
+    [getImageMetadata, state.metadataByFileId]
+  )
+
+  const currentFileId = useMemo(() => {
+    if (state.currentIndex < 0 || state.currentIndex >= state.fileIds.length) {
+      return ''
+    }
+
+    return state.fileIds[state.currentIndex]
+  }, [state.currentIndex, state.fileIds])
+
+  useEffect(() => {
+    void ensureMetadata(currentFileId)
+  }, [currentFileId, ensureMetadata])
+
+  const moveNext = useCallback(() => {
+    void (async () => {
+      if (state.fileIds.length === 0) {
+        return
+      }
+
+      if (state.currentIndex < state.fileIds.length - 1) {
+        const nextIndex = state.currentIndex + 1
+        const nextFileId = state.fileIds[nextIndex]
+        setState((current) => ({
+          ...current,
+          currentIndex: nextIndex,
+          status: toStatus(nextIndex, current.fileIds.length, nextFileId, current.metadataByFileId),
+        }))
+        return
+      }
+
+      try {
+        const latestFileIds = await listFileIds()
+        if (latestFileIds.length === 0) {
           setState((current) => ({
             ...current,
-            images: [],
+            fileIds: [],
             currentIndex: -1,
-            status: '画像が見つかりません。'
+            status: '画像が見つかりません。',
           }))
           return
         }
 
-        const nextIndex = (state.currentIndex + 1) % latestImages.length
-        const nextImage = latestImages[nextIndex]
+        const nextIndex = (state.currentIndex + 1) % latestFileIds.length
+        const nextFileId = latestFileIds[nextIndex]
         setState((current) => ({
           ...current,
-          images: latestImages,
+          fileIds: latestFileIds,
           currentIndex: nextIndex,
-          status: `${nextIndex + 1} / ${latestImages.length}: ${nextImage.name}`
+          status: toStatus(nextIndex, latestFileIds.length, nextFileId, current.metadataByFileId),
         }))
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         updateStatus(`画像一覧の更新に失敗しました: ${message}`)
       }
     })()
-  }, [state.currentDirectory, state.currentIndex, state.images, updateStatus])
+  }, [listFileIds, state.currentIndex, state.fileIds.length, updateStatus])
 
   const movePrevious = useCallback(() => {
     setState((current) => {
-      if (current.images.length === 0) {
+      if (current.fileIds.length === 0) {
         return current
       }
 
-      const nextIndex = (current.currentIndex - 1 + current.images.length) % current.images.length
-      const nextImage = current.images[nextIndex]
+      const nextIndex = (current.currentIndex - 1 + current.fileIds.length) % current.fileIds.length
+      const nextFileId = current.fileIds[nextIndex]
       return {
         ...current,
         currentIndex: nextIndex,
-        status: `${nextIndex + 1} / ${current.images.length}: ${nextImage.name}`
+        status: toStatus(nextIndex, current.fileIds.length, nextFileId, current.metadataByFileId),
       }
     })
   }, [])
 
   const deleteCurrentImage = useCallback(async () => {
-    const currentImage = state.images[state.currentIndex]
-    const currentDirectory = state.currentDirectory
-    if (!currentDirectory || !currentImage) {
+    if (!allowImageDelete) {
+      updateStatus('絞り込み画像の閲覧モードでは削除できません。')
+      return
+    }
+
+    const currentFileId = state.fileIds[state.currentIndex]
+    if (!currentFileId) {
       return
     }
 
     try {
-      await deleteViewerImage(currentImage.file_id)
-      const reloadedImages = await fetchViewerImages(currentDirectory.directory_id)
-
-      if (reloadedImages.length === 0) {
+      await deleteImageById(currentFileId)
+      const reloadedFileIds = await listFileIds()
+      if (reloadedFileIds.length === 0) {
         setState((current) => ({
           ...current,
-          images: [],
+          fileIds: [],
           currentIndex: -1,
-          status: '画像が見つかりません。'
+          status: '画像が見つかりません。',
         }))
         return
       }
 
-      const preservedIndex = reloadedImages.findIndex((image) => image.file_id === currentImage.file_id)
-      const nextIndex = preservedIndex >= 0 ? preservedIndex : Math.min(state.currentIndex, reloadedImages.length - 1)
+      const preservedIndex = reloadedFileIds.findIndex((fileId) => fileId === currentFileId)
+      const nextIndex = preservedIndex >= 0 ? preservedIndex : Math.min(state.currentIndex, reloadedFileIds.length - 1)
+      const nextFileId = reloadedFileIds[nextIndex]
       setState((current) => ({
         ...current,
-        images: reloadedImages,
+        fileIds: reloadedFileIds,
         currentIndex: nextIndex,
-        status: `画像を削除しました: ${currentImage.name}`
+        status: `画像を削除しました。現在: ${current.metadataByFileId[nextFileId]?.name ?? nextFileId}`,
       }))
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       updateStatus(`画像の削除に失敗しました: ${message}`)
     }
-  }, [state.currentDirectory, state.currentIndex, state.images, updateStatus])
+  }, [allowImageDelete, deleteImageById, listFileIds, state.currentIndex, state.fileIds, updateStatus])
 
-  const currentImage = useMemo(() => {
-    if (state.currentIndex < 0 || state.currentIndex >= state.images.length) {
+  const currentImage = useMemo<ViewerImageEntry | null>(() => {
+    if (!currentFileId) {
       return null
     }
 
-    return state.images[state.currentIndex]
-  }, [state.currentIndex, state.images])
+    return {
+      file_id: currentFileId,
+      name: state.metadataByFileId[currentFileId]?.name ?? currentFileId,
+    }
+  }, [currentFileId, state.metadataByFileId])
 
   const imageIndexText = useMemo(() => {
     if (!currentImage) {
       return '0 / 0'
     }
 
-    return `${state.currentIndex + 1} / ${state.images.length}`
-  }, [currentImage, state.currentIndex, state.images.length])
+    return `${state.currentIndex + 1} / ${state.fileIds.length}`
+  }, [currentImage, state.currentIndex, state.fileIds.length])
 
   const imageNameText = currentImage ? currentImage.name : ''
+  const currentImageDirectoryName = currentFileId ? state.metadataByFileId[currentFileId]?.directory_name ?? '' : ''
 
   return {
-    currentDirectory: state.currentDirectory,
+    currentImageDirectoryName,
     currentImage,
     imageIndexText,
     imageNameText,
     status: state.status,
-    canDelete: Boolean(currentImage),
+    canDelete: allowImageDelete && Boolean(currentImage),
     initialize,
     moveNext,
     movePrevious,
-    deleteCurrentImage
+    deleteCurrentImage,
   }
 }
