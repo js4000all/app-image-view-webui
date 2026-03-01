@@ -31,6 +31,13 @@ class DeleteImageResponse(BaseModel):
     file_id: FileId
 
 
+class ImageMetadataResponse(BaseModel):
+    file_id: FileId
+    name: FileName
+    directory_id: DirectoryId
+    directory_name: DirectoryName
+
+
 class RenameDirectoryRequest(BaseModel):
     new_name: DirectoryName
 

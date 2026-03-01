@@ -1,16 +1,26 @@
 import { useEffect } from 'react'
 
 import { useViewer } from '../hooks/useViewer'
+import type { ViewerFileIdListProvider, ViewerImageDeleteHandler, ViewerImageMetadataProvider } from '../hooks/useViewer'
 
 type ViewerPageProps = {
-  requestedDirectoryId: string
-  onNavigateHome: (directoryId: string) => void
+  onNavigateBack: () => void
+  listFileIds?: ViewerFileIdListProvider
+  getImageMetadata?: ViewerImageMetadataProvider
+  deleteImageById?: ViewerImageDeleteHandler
+  allowImageDelete?: boolean
 }
 
 export function ViewerPage(props: ViewerPageProps) {
-  const { requestedDirectoryId, onNavigateHome } = props
   const {
-    currentDirectory,
+    onNavigateBack,
+    listFileIds,
+    getImageMetadata,
+    deleteImageById,
+    allowImageDelete,
+  } = props
+  const {
+    currentImageDirectoryName,
     currentImage,
     imageIndexText,
     imageNameText,
@@ -19,12 +29,12 @@ export function ViewerPage(props: ViewerPageProps) {
     initialize,
     moveNext,
     movePrevious,
-    deleteCurrentImage
-  } = useViewer()
+    deleteCurrentImage,
+  } = useViewer({ listFileIds, getImageMetadata, deleteImageById, allowImageDelete })
 
   useEffect(() => {
-    void initialize(requestedDirectoryId)
-  }, [initialize, requestedDirectoryId])
+    void initialize()
+  }, [initialize])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -37,7 +47,7 @@ export function ViewerPage(props: ViewerPageProps) {
       }
 
       if (event.key === 'Escape') {
-        onNavigateHome(currentDirectory?.directory_id ?? '')
+        onNavigateBack()
       }
 
       if (event.key === 'Delete') {
@@ -49,7 +59,7 @@ export function ViewerPage(props: ViewerPageProps) {
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [currentDirectory, deleteCurrentImage, moveNext, movePrevious, onNavigateHome])
+  }, [deleteCurrentImage, moveNext, movePrevious, onNavigateBack])
 
   useEffect(() => {
     const handleWheel = (event: WheelEvent) => {
@@ -78,7 +88,7 @@ export function ViewerPage(props: ViewerPageProps) {
     <main className="main">
       <div className="image-stage">
         {currentImage ? (
-          <img id="main-image" src={`/api/image/${encodeURIComponent(currentImage.file_id)}`} alt="画像プレビュー" style={{ display: "block" }} />
+          <img id="main-image" src={`/api/image/${encodeURIComponent(currentImage.file_id)}`} alt="画像プレビュー" style={{ display: 'block' }} />
         ) : null}
         <p id="empty-message" style={{ display: currentImage ? 'none' : 'grid' }}>
           画像がありません
@@ -93,7 +103,7 @@ export function ViewerPage(props: ViewerPageProps) {
               title="ディレクトリ一覧へ戻る"
               onClick={(event) => {
                 event.preventDefault()
-                onNavigateHome(currentDirectory?.directory_id ?? '')
+                onNavigateBack()
               }}
             >
               ⮌
@@ -111,7 +121,7 @@ export function ViewerPage(props: ViewerPageProps) {
         </div>
         <div className="overlay-panel overlay-panel-right" aria-live="polite">
           <p id="selected-subdir" className="overlay-line selected-subdir">
-            {currentDirectory ? `フォルダ名: ${currentDirectory.name}` : 'フォルダ名: -'}
+            {currentImageDirectoryName ? `フォルダ名: ${currentImageDirectoryName}` : 'フォルダ名: -'}
           </p>
           <p className="overlay-line image-name">
             ファイル名: <span id="image-name">{imageNameText || '-'}</span>

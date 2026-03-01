@@ -89,6 +89,23 @@ def test_get_and_head_image_contract(api_client_factory, copied_image_root):
     assert missing.status_code == 404
 
 
+def test_get_image_metadata_for_existing_and_missing_file(api_client_factory, copied_image_root):
+    client = api_client_factory(copied_image_root)
+    directory_id = _first_directory_id(client)
+    file_id = _first_file_id(client, directory_id)
+
+    success = client.get(f"/api/image-meta/{file_id}")
+    missing = client.get('/api/image-meta/not-found-file-id')
+
+    assert success.status_code == 200
+    payload = success.json()
+    assert payload["file_id"] == file_id
+    assert isinstance(payload["name"], str)
+    assert isinstance(payload["directory_id"], str)
+    assert isinstance(payload["directory_name"], str)
+    assert missing.status_code == 404
+
+
 def test_delete_image_then_fetch_returns_404(api_client_factory, copied_image_root):
     client = api_client_factory(copied_image_root)
     directory_id = _first_directory_id(client)

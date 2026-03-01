@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { HomePage } from './features/home/pages/HomePage'
 import { ViewerPage } from './features/viewer/pages/ViewerPage'
+import { fetchViewerImages } from './features/viewer/api/viewerApi'
 
 type LocationState = {
   pathname: string
@@ -110,7 +111,19 @@ export function App() {
   const homeRoute = useMemo(() => parseHomeRoute(location), [location])
 
   if (viewerRoute.isViewer) {
-    return <ViewerPage requestedDirectoryId={viewerRoute.requestedDirectoryId} onNavigateHome={navigateHome} />
+    return (
+      <ViewerPage
+        listFileIds={async () => {
+          if (!viewerRoute.requestedDirectoryId) {
+            return []
+          }
+
+          const images = await fetchViewerImages(viewerRoute.requestedDirectoryId)
+          return images.map((image) => image.file_id)
+        }}
+        onNavigateBack={() => navigateHome(viewerRoute.requestedDirectoryId)}
+      />
+    )
   }
 
   return <HomePage requestedDirectoryId={homeRoute.requestedDirectoryId} onOpenViewer={navigateViewer} />

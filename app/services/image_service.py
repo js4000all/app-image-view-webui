@@ -99,6 +99,17 @@ class ImageService:
             raise UnsupportedMediaTypeError
         return file_path
 
+    def get_image_metadata(self, file_id: FileId) -> tuple[DirectoryId, DirectoryName, ImageEntry]:
+        file_path = self.resolve_image(file_id)
+        directory_path = file_path.parent
+
+        if not directory_path.is_relative_to(self.base_dir):
+            raise ResourceNotFoundError
+
+        directory_id = self.registry.register(directory_path)
+        image_entry = ImageEntry(file_id=file_id, name=file_path.name)
+        return directory_id, directory_path.name, image_entry
+
     def delete_image(self, file_id: FileId) -> Path:
         file_path = self.resolve_image(file_id)
         try:

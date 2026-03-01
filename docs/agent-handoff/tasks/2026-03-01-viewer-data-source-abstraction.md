@@ -1,0 +1,118 @@
+## Context Handoff
+- Goal:
+  - `useViewer` の閲覧ロジックをデータソース抽象化し、将来の「タグ絞り込み由来 file_id 群」での閲覧導線を追加しやすくする。
+- Changes:
+  - `frontend/src/features/viewer/hooks/useViewer.ts` に `ViewerFileIdListProvider` と `UseViewerOptions` を追加し、初期化・末尾再読込・削除後再取得の全てで `listFileIds(directory)` を利用するよう変更。
+  - 同フックで `allowImageDelete` を導入し、絞り込み閲覧モード等で削除を無効化できるようにした（無効時はステータスメッセージ表示）。
+  - `frontend/src/features/viewer/pages/ViewerPage.tsx` が `listFileIds` / `allowImageDelete` を受け取り、`useViewer` に渡すよう変更。
+- Decisions:
+  - Decision: 閲覧ロジックの再取得契機（初期化・末尾移動・削除後）はすべて同一抽象 `listFileIds` に統一。
+    - Rationale: 取得元がディレクトリでも絞り込み結果でも、ナビゲーション側の実装を固定化できるため。
+    - Impact: `useViewer` と `ViewerPage` の API に拡張ポイントが追加される。
+  - Decision: 絞り込み閲覧モードでの削除は暫定無効化。
+    - Rationale: 絞り込み結果の整合性（複数ソースからの file_id 集約時の削除反映仕様）が未確定のため。
+    - Impact: `allowImageDelete=false` で削除操作を禁止できる。
+- Open Questions:
+  - 絞り込み結果の `file_id` リストから「表示名（現在は file_id 表示）」をどの API で補完するかは未決。
+  - 絞り込み閲覧で削除を有効化する場合、削除後の再検索・結果更新責務をフロントとバックエンドのどちらに寄せるかを要検討。
+- Verification:
+  - `npm --prefix frontend run build` : 成功
+- Verification (additional):
+  - `npm --prefix frontend run check` : 失敗（`tools/export_openapi.py` の `--image-dir` 既定値が frontend cwd 基準になり `frontend/tests/resources/image_root` を参照してしまう既知の相対パス問題）。
+  - `python -m pip install -r requirements-dev.txt` : 成功
+  - `pytest tests/api/test_api_contract.py -q` : 成功（9 passed）
+
+## Context Handoff (follow-up)
+- Goal:
+  - 閲覧コンポーネントからディレクトリ前提の詳細をさらに隠蔽し、`file_id` 基準の抽象APIで構成する。
+- Changes:
+  - `GET /api/image-meta/{file_id}` を追加し、`file_id` から `name` / `directory_id` / `directory_name` を返せるようにした。
+  - `useViewer` に `getImageMetadata(fileId)` と `deleteImageById(fileId)` の抽象を追加し、表示名解決と削除処理を差し替え可能にした。
+  - `ViewerPage` の戻る操作を `onNavigateBack()`（引数なし）へ変更し、画面側からディレクトリIDを扱わない構成へ変更。
+  - OpenAPI/生成クライアント/静的バンドルを更新。
+- Decisions:
+  - Decision: ファイル名表示は `file_id` ではなく `getImageMetadata` で解決した `name` を優先。
+    - Rationale: 絞り込み由来の `file_id` 一覧でも既存UX（ファイル名表示）を維持しやすい。
+    - Impact: 閲覧ロジックがメタ情報APIへ依存する（失敗時は `file_id` フォールバック）。
+  - Decision: 戻る導線は `ViewerPage` からディレクトリIDを渡さない。
+    - Rationale: 閲覧画面を「どのソースで開いても使えるUI」に近づけるため。
+    - Impact: ルーティング側（`App`）が戻り先の文脈を保持して注入する責務を持つ。
+- Open Questions:
+  - 絞り込み閲覧で「戻る先」をタグ検索条件に戻す場合のルート設計（query params / state管理）は未確定。
+  - `listFileIds` の引数を directory 依存から完全に切り離す最終インターフェースは次段で検討。
+- Verification:
+  - `python tools/export_openapi.py --image-dir tests/resources/image_root --output frontend/openapi/openapi.json` : 成功
+  - `npm --prefix frontend run generate:api-client` : 成功
+  - `python -m pip install -r requirements-dev.txt` : 成功
+  - `pytest tests/api/test_api_contract.py -q` : 成功（10 passed）
+  - `npm --prefix frontend run build:bundle` : 成功
+
+## Context Handoff (follow-up 2)
+- Goal:
+  - `ViewerPage` から `requestedDirectoryId` を除去し、`ViewerFileIdListProvider` を引数なし抽象にして、ディレクトリ前提をさらに隠蔽する。
+- Changes:
+  - `ViewerFileIdListProvider` を `() => Promise<string[]>` に変更し、`useViewer` 側の初期化/再取得/削除後再取得の全てを引数なし provider 経由に統一。
+  - `ViewerPage` props から `requestedDirectoryId` を削除し、`initialize()` も引数なしへ変更。
+  - `App` 側で route の `requestedDirectoryId` を閉じ込めた `listFileIds` 関数を生成し、`ViewerPage` に注入。
+  - `useViewer` の状態から `currentDirectory` 依存を除去し、表示用は `currentDirectoryName` のみ保持。
+- Decisions:
+  - Decision: `ViewerPage` では directory_id を直接扱わず、`listFileIds` の責務として外部注入する。
+    - Rationale: 閲覧コンポーネントの責務を「file_id リスト上の移動」に限定するため。
+    - Impact: ルーティング層が閲覧コンテキストを provider として構成する必要がある。
+- Open Questions:
+  - 複数ディレクトリ混在の file_id リスト時に `currentDirectoryName` をどう表現するか（現状は先頭取得可能値を採用）。
+- Verification:
+  - `npm --prefix frontend run build:bundle` : 成功
+  - `python -m pip install -r requirements-dev.txt` : 成功
+  - `pytest tests/api/test_api_contract.py -q` : 成功（10 passed）
+
+## Context Handoff (follow-up 3)
+- Goal:
+  - `currentDirectoryName` の名称を、実際の意味（現在表示中画像の所属ディレクトリ名）に合わせる。
+- Changes:
+  - `useViewer` の公開値/内部stateを `currentImageDirectoryName` へ改名。
+  - `ViewerPage` 側の受け取り名と表示箇所も同名へ追従。
+  - フロントバンドルを再生成。
+- Decisions:
+  - Decision: `currentImageDirectoryName` へ改名して意味を明確化。
+    - Rationale: 変数名と表示意図を一致させ、誤読を防ぐため。
+    - Impact: viewer hook/page の参照名のみ変更（動作仕様は維持）。
+- Open Questions:
+  - 複数ディレクトリ混在リスト時の表示方針（単一名表示のままか）は継続検討。
+- Verification:
+  - `npm --prefix frontend run build:bundle` : 成功
+  - `pytest tests/api/test_api_contract.py -q` : 成功（10 passed）
+
+## Context Handoff (follow-up 4)
+- Goal:
+  - フォルダ名表示を「固定値」ではなく、現在表示中画像に追随させる。
+- Changes:
+  - `useViewer` の state から固定的な `currentImageDirectoryName` 保持をやめ、画像ごとの `directoryName` を `images` エントリに保持する方式へ変更。
+  - `currentImageDirectoryName` は `currentImage` から都度導出するよう変更し、画像切替（次へ/前へ/再取得後）に同期して表示が変わるようにした。
+- Decisions:
+  - Decision: 画像ごとにディレクトリ名を保持し、表示値は `currentIndex` に紐づく画像から導出する。
+    - Rationale: 複数ディレクトリ混在リストでも、常に表示中画像に対応したフォルダ名を表示するため。
+    - Impact: フォルダ名表示の責務が「リスト全体」から「現在画像」へ移る。
+- Open Questions:
+  - メタ情報取得失敗時の directory 表示フォールバック（現在は空文字）は今後改善余地あり。
+- Verification:
+  - `npm --prefix frontend run build:bundle` : 成功
+  - `pytest tests/api/test_api_contract.py -q` : 成功（10 passed）
+
+## Context Handoff (follow-up 5)
+- Goal:
+  - 一覧取得時に全件メタ情報を先読みせず、表示中画像の切替タイミングで必要な file メタ情報のみ取得する。
+- Changes:
+  - `useViewer` の内部表現を `fileIds + metadataByFileId` に変更し、初期化/再取得では file_id リストのみを取得する構造へ変更。
+  - `currentIndex` で選択された `currentFileId` に対してのみ `getImageMetadata(fileId)` を実行する `ensureMetadata` を追加（`useEffect` でトリガ）。
+  - フォルダ名・ファイル名表示は `currentFileId` に紐づくメタ情報から導出し、未取得時は file_id フォールバック。
+- Decisions:
+  - Decision: メタ情報の取得は「現在表示中画像」に限定して遅延取得する。
+    - Rationale: 画像一覧の先頭表示までの無駄な API 呼び出しを削減し、混在リストでも表示切替時に正しい文脈へ追随させるため。
+    - Impact: 初期表示時のメタ情報は段階的に解決される（先に画像表示、後から名称/フォルダ名が更新されることがある）。
+- Open Questions:
+  - `ensureMetadata` の重複呼び出し抑制（in-flight request の共通化）を追加するかは今後検討。
+- Verification:
+  - `npm --prefix frontend run build:bundle` : 成功
+  - `python -m pip install -r requirements-dev.txt` : 成功
+  - `pytest tests/api/test_api_contract.py -q` : 成功（10 passed）
