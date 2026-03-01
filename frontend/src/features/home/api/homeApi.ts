@@ -24,11 +24,6 @@ export async function renameSubdirectory(directoryId: string, newName: string): 
 }
 
 export async function fetchTagSummaries(): Promise<TagSummary[]> {
-  const response = await fetch('/api/tag-index/tags')
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`)
-  }
-
-  const data = await response.json() as { tags: TagSummary[] }
+  const data = await DefaultService.listTagIndexTags()
   return data.tags
 }

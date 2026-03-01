@@ -11,6 +11,7 @@ import type { SubdirectoriesResponse } from '../models/SubdirectoriesResponse';
 import type { TagIndexRefreshJobStartResponse } from '../models/TagIndexRefreshJobStartResponse';
 import type { TagIndexRefreshJobStatusResponse } from '../models/TagIndexRefreshJobStatusResponse';
 import type { TagIndexRefreshResponse } from '../models/TagIndexRefreshResponse';
+import type { TagListResponse } from '../models/TagListResponse';
 import type { TagQueryRequest } from '../models/TagQueryRequest';
 import type { TagQueryResponse } from '../models/TagQueryResponse';
 import type { CancelablePromise } from '../core/CancelablePromise';
@@ -235,6 +236,17 @@ export class DefaultService {
             errors: {
                 422: `Validation Error`,
             },
+        });
+    }
+    /**
+     * List Tag Index Tags
+     * @returns TagListResponse Successful Response
+     * @throws ApiError
+     */
+    public static listTagIndexTags(): CancelablePromise<TagListResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/tag-index/tags',
         });
     }
     /**

@@ -20,3 +20,21 @@
   - `npm --prefix frontend ci`（成功）
   - `npm --prefix frontend run build:bundle`（成功）
   - `run_playwright_script`（失敗: browser container の Chromium が SIGSEGV、Firefox は selector timeout）
+
+## Context Handoff (follow-up)
+- Goal: CI の `verify_spa_api_flow.sh quick` 失敗原因（OpenAPI/生成クライアント差分）と E2E 落ちの再現有無を切り分ける。
+- Changes:
+  - `frontend/openapi/openapi.json` と `frontend/src/generated/api/*` に `TagListResponse` / `TagSummaryEntry` / `listTagIndexTags` を反映。
+  - `frontend/src/features/home/api/homeApi.ts` のタグ一覧取得を `fetch` 直叩きから `DefaultService.listTagIndexTags()` に変更。
+- Decisions:
+  - Decision: 新規APIは生成クライアント経由で利用し、OpenAPI/生成物をコミット対象に戻す。
+  - Rationale: `verify_spa_api_flow.sh quick` は「仕様・生成物の差分ゼロ」を前提にしており、未同梱だと必ず失敗するため。
+  - Impact: CI の quick verify で検知されていた差分失敗が解消される。
+- Open Questions:
+  - この環境では `tests/e2e` は再実行で成功したため、報告された「e2e落ち」は未同梱生成物による verify ジョブ失敗の誤認だった可能性が高い。
+- Verification:
+  - `python -m pip install -r requirements-dev.txt`（成功）
+  - `python -m playwright install --with-deps chromium`（成功）
+  - `pytest tests/e2e -q`（1 passed）
+  - `pytest tests/api/test_api_contract.py -q`（11 passed）
+  - `npm --prefix frontend run build:bundle`（成功）
