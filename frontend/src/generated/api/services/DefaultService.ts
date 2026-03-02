@@ -14,6 +14,7 @@ import type { TagIndexRefreshResponse } from '../models/TagIndexRefreshResponse'
 import type { TagListResponse } from '../models/TagListResponse';
 import type { TagQueryRequest } from '../models/TagQueryRequest';
 import type { TagQueryResponse } from '../models/TagQueryResponse';
+import type { TagRegistryResponse } from '../models/TagRegistryResponse';
 import type { CancelablePromise } from '../core/CancelablePromise';
 import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
@@ -236,6 +237,17 @@ export class DefaultService {
             errors: {
                 422: `Validation Error`,
             },
+        });
+    }
+    /**
+     * List Tag Index Registry
+     * @returns TagRegistryResponse Successful Response
+     * @throws ApiError
+     */
+    public static listTagIndexRegistry(): CancelablePromise<TagRegistryResponse> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/tag-index/registry',
         });
     }
     /**

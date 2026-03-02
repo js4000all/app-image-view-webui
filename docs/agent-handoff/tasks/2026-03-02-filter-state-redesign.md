@@ -1,0 +1,52 @@
+## Context Handoff
+- Goal:
+  - 絞り込み画面の状態モデルを `selectedTags` / `baseResultIds` / `currentResultIds` / `unselectedTagStats` に統一し、AND条件と未選択タグ件数再計算を純関数へ集約する。
+- Changes:
+  - `frontend/src/features/filter/model/filterState.ts` を追加し、状態再計算を副作用なし関数 `computeFilterStateSnapshot` へ分離。
+  - `frontend/src/features/filter/pages/FilterPage.tsx` を更新し、複数タグ選択・再計算結果表示・0件タグ非表示をモデル層の計算結果に委譲。
+  - `frontend/src/App.tsx` を更新し、`tag` クエリをカンマ区切り複数指定として扱い、viewer 側も AND クエリを複数タグで実行。
+  - `frontend/src/features/filter/model/filterState.test.ts` を追加し、AND条件と未選択タグ件数の再計算を固定。
+  - `frontend/package.json` に `test` スクリプトと `vitest` 依存を追加。
+- Decisions:
+  - Decision: 再計算ロジックは React コンポーネント外へ切り出し、引数だけで結果を返す純関数に統一。
+  - Rationale: 今後の状態モデル拡張（検索・並び替え・二段階絞り込み）時の回帰面積を縮小するため。
+  - Impact: フィルタUI・URL状態・viewerタグ指定の連携。
+- Open Questions:
+  - タグ一覧ロード時に各タグ単体クエリを並列実行しているため、タグ数増加時の初期ロード時間は要監視。
+- Verification:
+  - `npm --prefix frontend run test` : 成功（2 tests passed）。
+  - `npm --prefix frontend run build:bundle` : 成功。
+
+## Context Handoff
+- Goal:
+  - タグ一覧ロード時のタイムアウト/失敗を回避し、初期ロードを1リクエスト化する。
+- Changes:
+  - `GET /api/tag-index/registry` を追加し、タグごとの `file_ids` 一括取得を可能にした。
+  - FilterPage 初期化処理を `listTagIndexRegistry` の単一呼び出しへ変更し、タグ単体クエリの大量並列実行を廃止。
+  - OpenAPI と生成クライアント・SPAバンドルを再生成。
+- Decisions:
+  - Decision: 件数集計と `baseResultIds` 算出は registry レスポンスから即時計算。
+  - Rationale: N回API呼び出しを1回に集約してタイムアウト/失敗リスクを下げるため。
+  - Impact: `/filter` 初期表示性能、tag-index API。
+- Open Questions:
+  - `registry` レスポンスサイズはタグ/画像件数増加時に肥大化するため、1万件超運用時は圧縮や段階取得の検討余地あり。
+- Verification:
+  - `npm --prefix frontend run test` : 成功。
+  - `npm --prefix frontend run build:bundle` : 成功。
+  - `curl http://127.0.0.1:8000/api/tag-index/registry` : 200 OK。
+
+## Context Handoff
+- Goal:
+  - `pytest` 失敗（DBロード時に startup query が 0 件）の原因を特定し、回帰を解消する。
+- Changes:
+  - `TagIndexService.load_index_from_db` のパス検証を調整。
+  - DB内パスが `base_dir` 配下でない場合でも、ファイルが存在する限り index 読み込み対象とし、`registry.register` による relative path 生成は `base_dir` 配下のときのみ実施。
+- Decisions:
+  - Decision: `base_dir` 外パスは ID 再検証をスキップし、DB保存の `file_id` を採用。
+  - Rationale: startup DB再利用テストの仕様（base_dir 切替時でも既存indexを利用）を満たすため。
+  - Impact: 起動時の tag-index 復元ロジック、`tests/api/test_api_contract.py::test_tag_index_query_works_on_startup_by_loading_db_without_rebuild`。
+- Open Questions:
+  - DBに古い/不正 `file_id` が残っている場合の補正戦略は未整理（現状は base_dir 外では trust DB）。
+- Verification:
+  - `pytest tests/api/test_api_contract.py::test_tag_index_query_works_on_startup_by_loading_db_without_rebuild -q` : 成功。
+  - `pytest tests/api -q` : 成功（11 passed）。

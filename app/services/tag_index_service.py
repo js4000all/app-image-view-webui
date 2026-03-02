@@ -296,12 +296,13 @@ class TagIndexService:
             for file_id_raw, path, mtime_ns, size in indexed_files:
                 file_id = FileId(file_id_raw)
                 resolved_path = Path(path).resolve()
-                if not resolved_path.exists() or not resolved_path.is_file() or not resolved_path.is_relative_to(self.base_dir):
+                if not resolved_path.exists() or not resolved_path.is_file():
                     continue
 
-                registered_file_id = FileId(self.registry.register(resolved_path))
-                if registered_file_id != file_id:
-                    continue
+                if resolved_path.is_relative_to(self.base_dir):
+                    registered_file_id = FileId(self.registry.register(resolved_path))
+                    if registered_file_id != file_id:
+                        continue
 
                 fingerprint = FileFingerprint(mtime_ns=mtime_ns, size=size)
                 file_metadata[file_id] = IndexedFileMeta(path=str(resolved_path), fingerprint=fingerprint)
@@ -520,6 +521,12 @@ class TagIndexService:
         return sorted(
             ((tag, len(file_ids)) for tag, file_ids in self.tag_to_file_ids.items()),
             key=lambda item: (-item[1], item[0]),
+        )
+
+    def list_tag_registry(self) -> list[tuple[str, list[FileId]]]:
+        return sorted(
+            ((tag, sorted(file_ids)) for tag, file_ids in self.tag_to_file_ids.items()),
+            key=lambda item: item[0],
         )
 
 

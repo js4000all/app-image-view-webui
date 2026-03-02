@@ -16,19 +16,21 @@ const VIEWER_PATH = '/viewer'
 const FILTER_PATH = '/filter'
 const DIRECTORY_ID_PARAM = 'directory_id'
 const TAG_PARAM = 'tag'
+const TAG_SEPARATOR = ','
 
 function buildViewerPathFromDirectory(directoryId: string): string {
   return `${VIEWER_PATH}?${DIRECTORY_ID_PARAM}=${encodeURIComponent(directoryId)}`
 }
 
-function buildViewerPathFromTag(tag: string): string {
-  return `${VIEWER_PATH}?${TAG_PARAM}=${encodeURIComponent(tag)}`
+function buildViewerPathFromTags(tags: string[]): string {
+  const encoded = tags.filter(Boolean).join(TAG_SEPARATOR)
+  return `${VIEWER_PATH}?${TAG_PARAM}=${encodeURIComponent(encoded)}`
 }
 
 type ViewerRoute = {
   isViewer: boolean
   requestedDirectoryId: string
-  selectedTag: string
+  selectedTags: string[]
 }
 
 type HomeRoute = {
@@ -37,7 +39,7 @@ type HomeRoute = {
 
 type FilterRoute = {
   isFilter: boolean
-  selectedTag: string
+  selectedTags: string[]
 }
 
 function parseViewerRoute(location: LocationState): ViewerRoute {
@@ -45,7 +47,7 @@ function parseViewerRoute(location: LocationState): ViewerRoute {
     return {
       isViewer: false,
       requestedDirectoryId: '',
-      selectedTag: '',
+      selectedTags: [],
     }
   }
 
@@ -53,7 +55,7 @@ function parseViewerRoute(location: LocationState): ViewerRoute {
   return {
     isViewer: true,
     requestedDirectoryId: params.get(DIRECTORY_ID_PARAM) ?? '',
-    selectedTag: params.get(TAG_PARAM) ?? '',
+    selectedTags: (params.get(TAG_PARAM) ?? '').split(TAG_SEPARATOR).map((tag) => tag.trim()).filter(Boolean),
   }
 }
 
@@ -74,14 +76,14 @@ function parseFilterRoute(location: LocationState): FilterRoute {
   if (!location.pathname.startsWith(FILTER_PATH)) {
     return {
       isFilter: false,
-      selectedTag: '',
+      selectedTags: [],
     }
   }
 
   const params = new URLSearchParams(location.search)
   return {
     isFilter: true,
-    selectedTag: params.get(TAG_PARAM) ?? '',
+    selectedTags: (params.get(TAG_PARAM) ?? '').split(TAG_SEPARATOR).map((tag) => tag.trim()).filter(Boolean),
   }
 }
 
@@ -131,13 +133,13 @@ export function App() {
     navigate(`${HOME_PATH}?${params.toString()}`)
   }, [navigate])
 
-  const navigateFilter = useCallback((tag = '') => {
-    if (!tag) {
+  const navigateFilter = useCallback((tags: string[] = []) => {
+    if (tags.length === 0) {
       navigate(FILTER_PATH)
       return
     }
 
-    const params = new URLSearchParams({ [TAG_PARAM]: tag })
+    const params = new URLSearchParams({ [TAG_PARAM]: tags.join(TAG_SEPARATOR) })
     navigate(`${FILTER_PATH}?${params.toString()}`)
   }, [navigate])
 
@@ -148,9 +150,9 @@ export function App() {
     [navigate]
   )
 
-  const navigateViewerFromTag = useCallback(
-    (tag: string) => {
-      navigate(buildViewerPathFromTag(tag))
+  const navigateViewerFromTags = useCallback(
+    (tags: string[]) => {
+      navigate(buildViewerPathFromTags(tags))
     },
     [navigate]
   )
@@ -160,7 +162,7 @@ export function App() {
   const filterRoute = useMemo(() => parseFilterRoute(location), [location])
 
   if (viewerRoute.isViewer) {
-    const hasTagMode = Boolean(viewerRoute.selectedTag)
+    const hasTagMode = viewerRoute.selectedTags.length > 0
 
     return (
       <ViewerPage
@@ -169,7 +171,7 @@ export function App() {
             const payload = await DefaultService.queryTagIndex({
               requestBody: {
                 mode: 'and',
-                tags: [viewerRoute.selectedTag],
+                tags: viewerRoute.selectedTags,
               },
             })
             return payload.file_ids
@@ -184,7 +186,7 @@ export function App() {
         }}
         onNavigateBack={() => {
           if (hasTagMode) {
-            navigateFilter(viewerRoute.selectedTag)
+            navigateFilter(viewerRoute.selectedTags)
             return
           }
 
@@ -198,9 +200,9 @@ export function App() {
   if (filterRoute.isFilter) {
     return (
       <FilterPage
-        selectedTag={filterRoute.selectedTag}
-        onChangeTag={navigateFilter}
-        onOpenViewer={navigateViewerFromTag}
+        selectedTags={filterRoute.selectedTags}
+        onChangeTags={navigateFilter}
+        onOpenViewer={navigateViewerFromTags}
       />
     )
   }

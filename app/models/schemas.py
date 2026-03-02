@@ -93,3 +93,12 @@ class TagSummaryEntry(BaseModel):
 
 class TagListResponse(BaseModel):
     tags: list[TagSummaryEntry]
+
+
+class TagRegistryEntry(BaseModel):
+    tag: str
+    file_ids: list[FileId]
+
+
+class TagRegistryResponse(BaseModel):
+    tags: list[TagRegistryEntry]
