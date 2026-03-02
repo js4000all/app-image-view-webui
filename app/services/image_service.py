@@ -55,15 +55,22 @@ class ResourceRegistry:
         prefix = "d" if is_directory else "f"
         return f"{prefix}_{digest}"
 
-    def register(self, path: Path) -> str:
+    def register(self, path: Path, *, is_directory: bool | None = None) -> str:
         resolved_path = path.resolve()
         with self._lock:
             resource_id = self._path_to_id.get(resolved_path)
             if resource_id is None:
-                resource_id = self._generate_resource_id(resolved_path, is_directory=resolved_path.is_dir())
+                resolved_is_directory = resolved_path.is_dir() if is_directory is None else is_directory
+                resource_id = self._generate_resource_id(resolved_path, is_directory=resolved_is_directory)
                 self._path_to_id[resolved_path] = resource_id
                 self._id_to_path[resource_id] = resolved_path
             return resource_id
+
+    def register_file(self, path: Path) -> str:
+        return self.register(path, is_directory=False)
+
+    def register_directory(self, path: Path) -> str:
+        return self.register(path, is_directory=True)
 
     def discard(self, path: Path) -> None:
         resolved_path = path.resolve()
@@ -96,7 +103,7 @@ class ImageService:
 
     def list_subdirectories(self) -> list[DirectoryEntry]:
         subdirectories = self.repository.list_subdirectories(self.base_dir)
-        return [DirectoryEntry(directory_id=self.registry.register(path), name=path.name) for path in subdirectories]
+        return [DirectoryEntry(directory_id=self.registry.register_directory(path), name=path.name) for path in subdirectories]
 
     def list_images(self, directory_id: DirectoryId) -> tuple[Path, list[ImageEntry]]:
         directory = self.registry.resolve(directory_id, base_dir=self.base_dir, expect_directory=True)
@@ -104,7 +111,7 @@ class ImageService:
             raise ResourceNotFoundError
 
         images = self.repository.list_images(directory)
-        image_entries = [ImageEntry(file_id=self.registry.register(path), name=path.name) for path in images]
+        image_entries = [ImageEntry(file_id=self.registry.register_file(path), name=path.name) for path in images]
         return directory, image_entries
 
     def resolve_image(self, file_id: FileId) -> Path:
@@ -122,7 +129,7 @@ class ImageService:
         if not directory_path.is_relative_to(self.base_dir):
             raise ResourceNotFoundError
 
-        directory_id = self.registry.register(directory_path)
+        directory_id = self.registry.register_directory(directory_path)
         image_entry = ImageEntry(file_id=file_id, name=file_path.name)
         return directory_id, directory_path.name, image_entry
 
@@ -156,5 +163,5 @@ class ImageService:
             raise ServiceError from exc
 
         self.registry.discard(current_directory)
-        new_directory_id = self.registry.register(destination)
+        new_directory_id = self.registry.register_directory(destination)
         return new_directory_id, current_directory.name, stripped_name

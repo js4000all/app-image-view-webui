@@ -408,3 +408,53 @@ def test_file_ids_are_stable_across_restarts_for_build_and_refresh(tmp_path: Pat
 
     assert built_file_ids == rebuilt_file_ids
     assert built_file_ids == refreshed_file_ids
+
+def test_load_index_from_db_reconciles_only_changed_directories(tmp_path: Path, monkeypatch):
+    base_dir = tmp_path / "images"
+    dir_a = base_dir / "a"
+    dir_b = base_dir / "b"
+    dir_a.mkdir(parents=True)
+    dir_b.mkdir(parents=True)
+
+    file_a = dir_a / "001.png"
+    file_b = dir_b / "101.png"
+    file_a.write_bytes(b"a1")
+    file_b.write_bytes(b"b1")
+
+    extracted: list[str] = []
+
+    def fake_extract(image_path: Path):
+        extracted.append(image_path.name)
+
+        class _Result:
+            positive = [f"tag-{image_path.stem}"]
+
+        return _Result()
+
+    monkeypatch.setattr("app.services.tag_index_service.extract_generation_prompts", fake_extract)
+
+    db_path = tmp_path / "tag_index.sqlite3"
+    builder = TagIndexService(
+        base_dir=base_dir,
+        repository=FileSystemRepository(),
+        registry=ResourceRegistry(base_dir=base_dir),
+        db_path=db_path,
+    )
+    builder.build_index(base_dir)
+
+    extracted.clear()
+    (dir_a / "002.png").write_bytes(b"a2")
+
+    loader = TagIndexService(
+        base_dir=base_dir,
+        repository=FileSystemRepository(),
+        registry=ResourceRegistry(base_dir=base_dir),
+        db_path=db_path,
+    )
+    loaded_count = loader.load_index_from_db()
+
+    assert extracted == ["002.png"]
+    assert loaded_count == 3
+    assert len(loader.query(["tag-001"], "and")) == 1
+    assert len(loader.query(["tag-002"], "and")) == 1
+    assert len(loader.query(["tag-101"], "and")) == 1
