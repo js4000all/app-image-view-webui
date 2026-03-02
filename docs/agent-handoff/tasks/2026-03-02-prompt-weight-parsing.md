@@ -1,0 +1,16 @@
+## Context Handoff
+- Goal:
+  - タグ生成時のプロンプト解析で、ウェイト記法由来の括弧や数値断片がタグに残る問題を解消する。
+- Changes:
+  - `app/services/prompt_extractor.py` に `_strip_weight_notation` を追加し、`_tokenize_prompt_terms` で共通利用するよう変更。
+  - 未エスケープ括弧の除去、末尾の数値ウェイト（`:1.2`, `:1:2` など）除去、空白正規化を実装。
+  - `tests/services/test_prompt_extractor.py` にウェイト記法の崩れ・部分適用・エスケープ括弧の保持ケースを追加。
+- Decisions:
+  - Decision: `\(` / `\)` はプレースホルダに退避してから括弧除去する方式を採用。
+  - Rationale: エスケープ括弧は文字列として保持し、ウェイト記法の括弧のみ除去するため。
+  - Impact: タグインデックスに流入するタグの正規化精度が向上し、意図しないタグ分断を低減。
+- Open Questions:
+  - `tag:2025` のような末尾が数値の正当タグは現状維持だが、将来的に厳密仕様化が必要な可能性あり。
+- Verification:
+  - `pytest tests/services/test_prompt_extractor.py -q` (pass)
+  - `pytest tests/services/test_tag_index_service.py -q` (pass)

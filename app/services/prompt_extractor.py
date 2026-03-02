@@ -243,11 +243,21 @@ def _tokenize_prompt_terms(part: str) -> list[str]:
             continue
 
         token = token.strip('"\'')
-        weighted = re.match(r"^\((.+):\s*-?\d+(?:\.\d+)?\)$", token)
-        if weighted:
-            token = weighted.group(1).strip()
+        token = _strip_weight_notation(token)
 
         if token:
             terms.append(token)
 
     return terms
+
+
+def _strip_weight_notation(token: str) -> str:
+    escaped_open_placeholder = "\uE000"
+    escaped_close_placeholder = "\uE001"
+
+    normalized = token.replace(r"\(", escaped_open_placeholder).replace(r"\)", escaped_close_placeholder)
+    normalized = re.sub(r"(?<!\\)[()]", "", normalized)
+    normalized = re.sub(r"(?:\s*:\s*-?\d+(?:\.\d+)?)+\s*$", "", normalized)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+
+    return normalized.replace(escaped_open_placeholder, r"\(").replace(escaped_close_placeholder, r"\)")
