@@ -34,3 +34,19 @@
   - `npm --prefix frontend run test` : 成功。
   - `npm --prefix frontend run build:bundle` : 成功。
   - `curl http://127.0.0.1:8000/api/tag-index/registry` : 200 OK。
+
+## Context Handoff
+- Goal:
+  - `pytest` 失敗（DBロード時に startup query が 0 件）の原因を特定し、回帰を解消する。
+- Changes:
+  - `TagIndexService.load_index_from_db` のパス検証を調整。
+  - DB内パスが `base_dir` 配下でない場合でも、ファイルが存在する限り index 読み込み対象とし、`registry.register` による relative path 生成は `base_dir` 配下のときのみ実施。
+- Decisions:
+  - Decision: `base_dir` 外パスは ID 再検証をスキップし、DB保存の `file_id` を採用。
+  - Rationale: startup DB再利用テストの仕様（base_dir 切替時でも既存indexを利用）を満たすため。
+  - Impact: 起動時の tag-index 復元ロジック、`tests/api/test_api_contract.py::test_tag_index_query_works_on_startup_by_loading_db_without_rebuild`。
+- Open Questions:
+  - DBに古い/不正 `file_id` が残っている場合の補正戦略は未整理（現状は base_dir 外では trust DB）。
+- Verification:
+  - `pytest tests/api/test_api_contract.py::test_tag_index_query_works_on_startup_by_loading_db_without_rebuild -q` : 成功。
+  - `pytest tests/api -q` : 成功（11 passed）。
