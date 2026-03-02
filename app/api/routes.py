@@ -20,6 +20,8 @@ from app.models.schemas import (
     TagListResponse,
     TagQueryRequest,
     TagQueryResponse,
+    TagRegistryEntry,
+    TagRegistryResponse,
     TagSummaryEntry,
 )
 from app.models.types import DirectoryId, FileId
@@ -235,6 +237,19 @@ def create_api_router(service: ImageService, tag_index_service: TagIndexService)
     def list_tag_index_tags() -> TagListResponse:
         tags = [TagSummaryEntry(tag=tag, count=count) for tag, count in tag_index_service.list_tags()]
         return TagListResponse(tags=tags)
+
+
+    @router.get(
+        "/tag-index/registry",
+        response_model=TagRegistryResponse,
+        operation_id="listTagIndexRegistry",
+    )
+    def list_tag_index_registry() -> TagRegistryResponse:
+        tags = [
+            TagRegistryEntry(tag=tag, file_ids=file_ids)
+            for tag, file_ids in tag_index_service.list_tag_registry()
+        ]
+        return TagRegistryResponse(tags=tags)
 
     @router.post(
         "/tag-index/query",

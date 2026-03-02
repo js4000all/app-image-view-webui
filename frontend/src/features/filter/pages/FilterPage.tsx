@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
-import { fetchTagSummaries } from '../../home/api/homeApi'
 import { DefaultService } from '../../../generated/api'
 import { computeFilterStateSnapshot } from '../model/filterState'
 
@@ -24,7 +23,11 @@ export function FilterPage(props: FilterPageProps) {
 
   const loadTags = useCallback(async () => {
     try {
-      const summaries = await fetchTagSummaries()
+      const registry = await DefaultService.listTagIndexRegistry()
+      const summaries = registry.tags
+        .map(({ tag, file_ids }) => ({ tag, count: file_ids.length }))
+        .sort((left, right) => right.count - left.count || left.tag.localeCompare(right.tag))
+
       setTags(summaries)
 
       if (summaries.length === 0) {
@@ -34,23 +37,11 @@ export function FilterPage(props: FilterPageProps) {
         return
       }
 
-      const pairs = await Promise.all(
-        summaries.map(async ({ tag }) => {
-          const result = await DefaultService.queryTagIndex({
-            requestBody: {
-              mode: 'and',
-              tags: [tag],
-            },
-          })
-          return [tag, result.file_ids] as const
-        })
-      )
-
       const nextTagToFileIds: Record<string, string[]> = {}
       const unionIds = new Set<string>()
-      for (const [tag, fileIds] of pairs) {
-        nextTagToFileIds[tag] = fileIds
-        for (const fileId of fileIds) {
+      for (const { tag, file_ids } of registry.tags) {
+        nextTagToFileIds[tag] = file_ids
+        for (const fileId of file_ids) {
           unionIds.add(fileId)
         }
       }

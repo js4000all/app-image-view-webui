@@ -23,6 +23,8 @@ export type { TagIndexRefreshResponse } from './models/TagIndexRefreshResponse';
 export type { TagListResponse } from './models/TagListResponse';
 export { TagQueryRequest } from './models/TagQueryRequest';
 export type { TagQueryResponse } from './models/TagQueryResponse';
+export type { TagRegistryEntry } from './models/TagRegistryEntry';
+export type { TagRegistryResponse } from './models/TagRegistryResponse';
 export type { TagSummaryEntry } from './models/TagSummaryEntry';
 export type { ValidationError } from './models/ValidationError';
 
@@ -42,6 +44,8 @@ export { $TagIndexRefreshResponse } from './schemas/$TagIndexRefreshResponse';
 export { $TagListResponse } from './schemas/$TagListResponse';
 export { $TagQueryRequest } from './schemas/$TagQueryRequest';
 export { $TagQueryResponse } from './schemas/$TagQueryResponse';
+export { $TagRegistryEntry } from './schemas/$TagRegistryEntry';
+export { $TagRegistryResponse } from './schemas/$TagRegistryResponse';
 export { $TagSummaryEntry } from './schemas/$TagSummaryEntry';
 export { $ValidationError } from './schemas/$ValidationError';
 

@@ -16,3 +16,21 @@
 - Verification:
   - `npm --prefix frontend run test` : 成功（2 tests passed）。
   - `npm --prefix frontend run build:bundle` : 成功。
+
+## Context Handoff
+- Goal:
+  - タグ一覧ロード時のタイムアウト/失敗を回避し、初期ロードを1リクエスト化する。
+- Changes:
+  - `GET /api/tag-index/registry` を追加し、タグごとの `file_ids` 一括取得を可能にした。
+  - FilterPage 初期化処理を `listTagIndexRegistry` の単一呼び出しへ変更し、タグ単体クエリの大量並列実行を廃止。
+  - OpenAPI と生成クライアント・SPAバンドルを再生成。
+- Decisions:
+  - Decision: 件数集計と `baseResultIds` 算出は registry レスポンスから即時計算。
+  - Rationale: N回API呼び出しを1回に集約してタイムアウト/失敗リスクを下げるため。
+  - Impact: `/filter` 初期表示性能、tag-index API。
+- Open Questions:
+  - `registry` レスポンスサイズはタグ/画像件数増加時に肥大化するため、1万件超運用時は圧縮や段階取得の検討余地あり。
+- Verification:
+  - `npm --prefix frontend run test` : 成功。
+  - `npm --prefix frontend run build:bundle` : 成功。
+  - `curl http://127.0.0.1:8000/api/tag-index/registry` : 200 OK。

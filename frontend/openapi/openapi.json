@@ -386,6 +386,43 @@
         "title": "TagQueryResponse",
         "type": "object"
       },
+      "TagRegistryEntry": {
+        "properties": {
+          "file_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "File Ids",
+            "type": "array"
+          },
+          "tag": {
+            "title": "Tag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag",
+          "file_ids"
+        ],
+        "title": "TagRegistryEntry",
+        "type": "object"
+      },
+      "TagRegistryResponse": {
+        "properties": {
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/TagRegistryEntry"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tags"
+        ],
+        "title": "TagRegistryResponse",
+        "type": "object"
+      },
       "TagSummaryEntry": {
         "properties": {
           "count": {
@@ -834,6 +871,24 @@
           }
         },
         "summary": "Get Tag Index Refresh Job"
+      }
+    },
+    "/api/tag-index/registry": {
+      "get": {
+        "operationId": "listTagIndexRegistry",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TagRegistryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Tag Index Registry"
       }
     },
     "/api/tag-index/tags": {
