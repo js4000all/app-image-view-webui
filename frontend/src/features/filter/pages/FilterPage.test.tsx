@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -50,5 +50,59 @@ describe('FilterPage header', () => {
 
     render(<FilterPage selectedTags={filterHeaderScenarios[1].selectedTags} onChangeTags={vi.fn()} onOpenViewer={vi.fn()} />)
     expect(await screen.findByText(/this_is_an_extremely_long_tag_name_for_ui_wrapping_validation/)).toBeTruthy()
+  })
+})
+
+describe('FilterPage threshold split', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('splits unselected tags into two sections by ratio and threshold', async () => {
+    vi.spyOn(DefaultService, 'listTagIndexRegistry').mockResolvedValue({
+      tags: [
+        { tag: 'base', file_ids: ['f1', 'f2', 'f3', 'f4'] },
+        { tag: 'tight', file_ids: ['f1'] },
+        { tag: 'wide', file_ids: ['f1', 'f2', 'f3', 'f4'] },
+      ],
+    })
+
+    render(<FilterPage selectedTags={['base']} onChangeTags={vi.fn()} onOpenViewer={vi.fn()} />)
+
+    const highSection = await screen.findByRole('heading', { name: '絞り込み寄与が高いタグ（比率 ≤ しきい値）' })
+    const lowSection = await screen.findByRole('heading', { name: '絞り込み寄与が低いタグ（比率 > しきい値）' })
+
+    expect(within(highSection.parentElement as HTMLElement).getByText(/tight/)).toBeTruthy()
+    expect(within(lowSection.parentElement as HTMLElement).getByText(/wide/)).toBeTruthy()
+  })
+
+  it('updates section placement when threshold slider changes', async () => {
+    vi.spyOn(DefaultService, 'listTagIndexRegistry').mockResolvedValue({
+      tags: [
+        { tag: 'base', file_ids: ['f1', 'f2', 'f3', 'f4'] },
+        { tag: 'middle', file_ids: ['f1', 'f2', 'f3'] },
+      ],
+    })
+
+    render(<FilterPage selectedTags={['base']} onChangeTags={vi.fn()} onOpenViewer={vi.fn()} />)
+
+    const slider = await screen.findByRole('slider', { name: /しきい値/ })
+    fireEvent.change(slider, { target: { value: '0.75' } })
+
+    expect(await screen.findByText('しきい値: 0.75')).toBeTruthy()
+  })
+
+  it('hides all unselected tags when currentResultCount is zero', async () => {
+    vi.spyOn(DefaultService, 'listTagIndexRegistry').mockResolvedValue({
+      tags: [
+        { tag: 'a', file_ids: ['f1'] },
+        { tag: 'b', file_ids: ['f2'] },
+      ],
+    })
+
+    render(<FilterPage selectedTags={['a', 'b']} onChangeTags={vi.fn()} onOpenViewer={vi.fn()} />)
+
+    expect(await screen.findByText('絞り込み結果: 0 / 2 件')).toBeTruthy()
+    expect(screen.queryByText(/件 \(.*%\)/)).toBeNull()
   })
 })

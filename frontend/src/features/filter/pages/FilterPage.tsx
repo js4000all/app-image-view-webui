@@ -16,6 +16,7 @@ type FilterPageProps = {
 
 export function FilterPage(props: FilterPageProps) {
   const { selectedTags, onChangeTags, onOpenViewer } = props
+  const [splitThreshold, setSplitThreshold] = useState(0.8)
   const [tags, setTags] = useState<TagSummary[]>([])
   const [tagToFileIds, setTagToFileIds] = useState<Record<string, string[]>>({})
   const [baseResultIds, setBaseResultIds] = useState<string[]>([])
@@ -73,11 +74,40 @@ export function FilterPage(props: FilterPageProps) {
     const selectedSummaries = tags.filter(({ tag }) => selectedTagSet.has(tag))
     const unselectedSummaries = tags
       .filter(({ tag }) => !selectedTagSet.has(tag))
-      .map(({ tag }) => ({ tag, count: snapshot.unselectedTagStats[tag] ?? 0 }))
+      .map(({ tag }) => {
+        const count = snapshot.unselectedTagStats[tag] ?? 0
+        const currentResultCount = snapshot.currentResultIds.length
+        const ratio = currentResultCount > 0 ? count / currentResultCount : 0
+        return { tag, count, ratio }
+      })
       .filter(({ count }) => count > 0)
 
     return [...selectedSummaries, ...unselectedSummaries]
-  }, [selectedTagSet, snapshot.unselectedTagStats, tags])
+  }, [selectedTagSet, snapshot.currentResultIds.length, snapshot.unselectedTagStats, tags])
+
+  const splitTagSections = useMemo(() => {
+    const highContributionTags: Array<{ tag: string; count: number; ratio: number }> = []
+    const lowContributionTags: Array<{ tag: string; count: number; ratio: number }> = []
+
+    for (const tag of sortedTags) {
+      if (!('ratio' in tag) || selectedTagSet.has(tag.tag)) {
+        continue
+      }
+
+      if (tag.ratio <= splitThreshold) {
+        highContributionTags.push(tag)
+      } else {
+        lowContributionTags.push(tag)
+      }
+    }
+
+    return {
+      highContributionTags,
+      lowContributionTags,
+    }
+  }, [selectedTagSet, sortedTags, splitThreshold])
+
+  const currentResultCount = snapshot.currentResultIds.length
 
   return (
     <main className="filter">
@@ -97,7 +127,22 @@ export function FilterPage(props: FilterPageProps) {
           </button>
         </div>
         <p className="home-status" id="filter-status">{status}</p>
-        <p className="home-status">絞り込み結果: {snapshot.currentResultIds.length} / {baseResultIds.length} 件</p>
+        <p className="home-status">絞り込み結果: {currentResultCount} / {baseResultIds.length} 件</p>
+        <p className="home-status">ゼロ件時は未選択タグを非表示（0除算防止）</p>
+        <label className="threshold-slider" htmlFor="tag-threshold">
+          しきい値: {splitThreshold.toFixed(2)}
+          <input
+            id="tag-threshold"
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={splitThreshold}
+            onChange={(event) => {
+              setSplitThreshold(Number(event.target.value))
+            }}
+          />
+        </label>
         <div className="selected-tag-chip-list" role="list" aria-label="選択中タグ一覧">
           {sortedSelectedTags.map((tag) => (
             <button
@@ -115,10 +160,56 @@ export function FilterPage(props: FilterPageProps) {
         </div>
       </div>
       <div className="tag-flow-scroll" aria-live="polite">
+        <section className="tag-section">
+          <h2>絞り込み寄与が高いタグ（比率 ≤ しきい値）</h2>
+          <div className="tag-button-list">
+            {splitTagSections.highContributionTags.map((tag) => {
+              const displayCount = snapshot.unselectedTagStats[tag.tag] ?? tag.count
+              return (
+                <button
+                  key={tag.tag}
+                  type="button"
+                  className="tag-button"
+                  onClick={() => {
+                    const next = new Set(selectedTagSet)
+                    next.add(tag.tag)
+                    onChangeTags(Array.from(next).sort())
+                  }}
+                >
+                  <span>{tag.tag}</span>
+                  <span className="tag-count">{displayCount}件 ({(tag.ratio * 100).toFixed(0)}%)</span>
+                </button>
+              )
+            })}
+          </div>
+        </section>
+        <section className="tag-section">
+          <h2>絞り込み寄与が低いタグ（比率 &gt; しきい値）</h2>
+          <div className="tag-button-list">
+            {splitTagSections.lowContributionTags.map((tag) => {
+              const displayCount = snapshot.unselectedTagStats[tag.tag] ?? tag.count
+              return (
+                <button
+                  key={tag.tag}
+                  type="button"
+                  className="tag-button"
+                  onClick={() => {
+                    const next = new Set(selectedTagSet)
+                    next.add(tag.tag)
+                    onChangeTags(Array.from(next).sort())
+                  }}
+                >
+                  <span>{tag.tag}</span>
+                  <span className="tag-count">{displayCount}件 ({(tag.ratio * 100).toFixed(0)}%)</span>
+                </button>
+              )
+            })}
+          </div>
+        </section>
         <div className="tag-button-list">
-          {sortedTags.map((tag) => {
+          {sortedTags.filter((tag) => selectedTagSet.has(tag.tag)).map((tag) => {
             const isSelected = selectedTagSet.has(tag.tag)
-            const displayCount = isSelected ? snapshot.currentResultIds.length : (snapshot.unselectedTagStats[tag.tag] ?? tag.count)
+            const displayCount = currentResultCount
             return (
               <button
                 key={tag.tag}

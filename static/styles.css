@@ -310,6 +310,24 @@ body {
   font-weight: 700;
 }
 
+
+.threshold-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+  max-width: 320px;
+}
+
+.tag-section {
+  margin-bottom: 16px;
+}
+
+.tag-section h2 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: #9aa5b1;
+}
 .tag-flow-scroll {
   flex: 1;
   min-height: 0;

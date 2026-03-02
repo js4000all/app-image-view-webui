@@ -1,0 +1,17 @@
+## Context Handoff
+- Goal:
+  - 絞り込み画面で未選択タグを `count / currentResultCount` 比率で2セクションに分離し、しきい値をUIから変更できるようにする。
+- Changes:
+  - `frontend/src/features/filter/pages/FilterPage.tsx` に比率計算・しきい値 state（初期値 0.8, 0.05刻みスライダー）・高寄与/低寄与セクション表示を追加。
+  - `currentResultCount=0` の場合は比率を 0 として扱い、既存の 0件除外ルールにより未選択タグを全非表示にする仕様をヘッダ文言で明示。
+  - `static/styles.css` にしきい値スライダー/セクション見出しのスタイルを追加。
+  - `frontend/src/features/filter/pages/FilterPage.test.tsx` にセクション分離・しきい値更新・ゼロ件時非表示の検証を追加。
+- Decisions:
+  - Decision: 未選択タグは常に `snapshot.unselectedTagStats`（0件除外済み）を母集団にして分離表示する。
+  - Rationale: 第1/第2セクション双方で0件非表示を共通適用する要件を1箇所で満たせるため。
+  - Impact: FilterPage の表示ロジックとUIテストに影響。
+- Open Questions:
+  - しきい値UIの配置や文言（「寄与が高い/低い」）はプロダクト方針に合わせて再調整余地あり。
+- Verification:
+  - `npm --prefix frontend run test -- FilterPage.test.tsx filterState.test.ts`
+  - `npm --prefix frontend run build:bundle`
