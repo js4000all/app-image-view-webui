@@ -35,16 +35,38 @@ pytest tests/e2e -q
 `python -m playwright install --with-deps chromium` を省略すると、環境によっては E2E が skip / fail します。
 
 ## 起動方法
+### 既存の単一ルート指定（互換モード）
 ```sh
 python app.py /path/to/image-dir
 ```
 
-内部では `uvicorn` で FastAPI アプリを起動します。
-起動後、ブラウザで `http://localhost:8000` にアクセスしてください。
+### preset指定の複数ルート起動（推奨）
+`root-presets.yaml` の `presets.<pkey>.roots.<dkey>.path` 形式で組合せを定義し、起動時に `pkey` を渡します。
+
+```yaml
+presets:
+  p1:
+    roots:
+      d1:
+        path: /home/user/image_root1
+  p3:
+    roots:
+      d1:
+        path: /home/user/image_root1
+      d2:
+        path: /home/user/image_root2
+```
+
+```sh
+python app.py p3 --presets-file ./root-presets.yaml
+```
+
+presetモードではタグインデクスDBは `<pkey>.sqlite3`（例: `p3.sqlite3`）を使います。  
+内部では `uvicorn` で FastAPI アプリを起動し、`http://localhost:8000` へアクセスします。
 
 オプション:
 ```sh
-python app.py /path/to/image-dir --host 0.0.0.0 --port 8000 --static-dir ./static
+python app.py p3 --presets-file ./root-presets.yaml --host 0.0.0.0 --port 8000 --static-dir ./static
 ```
 
 
