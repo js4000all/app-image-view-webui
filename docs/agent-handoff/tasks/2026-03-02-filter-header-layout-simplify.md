@@ -1,0 +1,17 @@
+## Context Handoff
+- Goal: 絞り込み画面ヘッダの情報量を減らし、指定された3行構成（操作行・しきい値行・選択タグ行）へ整理する。
+- Changes:
+  - `frontend/src/features/filter/pages/FilterPage.tsx` のヘッダ構造を再編し、1行目に「ホームへ戻る」「閲覧」「絞り込み結果」を横並び配置。
+  - 2行目に「しきい値」表示とスライダーを横並び配置。
+  - 説明文と補足文を削除し、状態メッセージは `sr-only` として保持。
+  - `static/styles.css` に `filter-header-row` 系スタイルを追加し、行レイアウトとタグチップ余白を調整。
+- Decisions:
+  - Decision: 表示上は3行構成に厳密化し、冗長テキスト（説明・補足）を削除。
+  - Rationale: 行数削減の要望に合わせて視線移動を最小化するため。
+  - Impact: 絞り込み画面ヘッダ（React描画）と共通スタイル定義に影響。
+- Open Questions:
+  - 状態メッセージ（成功/失敗）を将来的に可視表示へ戻す必要があるかは未確定。
+- Verification:
+  - `npm --prefix frontend run test -- FilterPage.test.tsx`（成功）
+  - `npm --prefix frontend run build:bundle`（成功）
+  - `python app.py tests/resources/image_root` 起動後に Playwright で `/filter?tag=cat,dog` を開き、スクリーンショット取得（成功）
