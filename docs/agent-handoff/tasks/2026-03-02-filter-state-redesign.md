@@ -50,3 +50,24 @@
 - Verification:
   - `pytest tests/api/test_api_contract.py::test_tag_index_query_works_on_startup_by_loading_db_without_rebuild -q` : 成功。
   - `pytest tests/api -q` : 成功（11 passed）。
+
+## Context Handoff
+- Goal:
+  - 絞り込み画面ヘッダで選択タグの視認性/操作性を上げ、結果件数を常時確認できるようにする。
+- Changes:
+  - `frontend/src/features/filter/pages/FilterPage.tsx` に選択タグチップ表示を追加し、辞書順表示・個別解除（×）を実装。
+  - ヘッダ件数表示を `絞り込み結果: current / total 件` に変更し、`baseResultIds` を総数として表示。
+  - `static/styles.css` に選択タグチップ群のレイアウト/長文折り返しスタイルを追加。
+  - `frontend/src/features/filter/pages/filterHeaderScenarios.ts` を追加し、長文タグ・多数タグの表示確認シナリオを定義。
+  - `frontend/src/features/filter/pages/FilterPage.test.tsx` を追加し、辞書順表示・個別解除・件数表示・表示確認シナリオを検証。
+  - テスト実行基盤として `frontend/package.json` に `@testing-library/react` / `@testing-library/user-event` / `jsdom` を追加。
+- Decisions:
+  - Decision: 選択タグはヘッダ内で常時チップ表示し、解除操作をタグボタンとは独立させる。
+  - Rationale: 「何を選んでいるか」と「どれを外すか」を1ステップで行えるようにし、絞り込み操作の往復コストを下げるため。
+  - Impact: `/filter` ヘッダUI、フロントエンドテスト。
+- Open Questions:
+  - 選択タグが極端に多い場合の最大高さ制御（ヘッダ領域の折りたたみ）は未対応。
+- Verification:
+  - `npm --prefix frontend run test` : 成功（5 tests passed）。
+  - `npm --prefix frontend run build:bundle` : 成功。
+  - `python app.py tests/resources/image_root --host 0.0.0.0 --port 8000` + Playwright screenshot : 成功。

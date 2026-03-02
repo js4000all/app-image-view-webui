@@ -281,6 +281,35 @@ body {
   flex-shrink: 0;
 }
 
+.selected-tag-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.selected-tag-chip {
+  border: 1px solid #88c0d0;
+  border-radius: 999px;
+  background: #2e3d4f;
+  color: inherit;
+  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  cursor: pointer;
+}
+
+.selected-tag-chip-label {
+  overflow-wrap: anywhere;
+}
+
+.selected-tag-chip-remove {
+  color: #9aa5b1;
+  font-weight: 700;
+}
+
 .tag-flow-scroll {
   flex: 1;
   min-height: 0;
