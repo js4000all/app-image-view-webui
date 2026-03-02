@@ -23,3 +23,58 @@
   - `pytest tests/services/test_tag_index_service.py -q` -> 成功（13 passed）
   - `python -m pip install -r requirements-dev.txt` -> 成功（不足依存の `httpx` / `playwright` を導入）
   - `pytest tests/api/test_api_contract.py::test_tag_index_query_and_refresh -q` -> 成功（1 passed）
+
+## Context Handoff
+- Goal: API契約を維持したまま、サーバ内部で複数ルート preset YAML (`presets.<pkey>.roots.<dkey>.path`) とID生成規則（directory: root key + dir name, file: directory id + file name）に対応する。
+- Changes:
+  - `app/config.py`: `AppSettings` を `preset_key/roots/db_path` ベースへ拡張し、`load_root_presets()` で YAML preset 読み込みを追加。
+  - `app/main.py`: 起動引数を `target`（preset key または既存ディレクトリパス互換）へ変更し、preset 指定時は `<preset>.sqlite3` を利用するよう更新。
+  - `app/services/image_service.py`: `ResourceRegistry` を複数 roots 対応へ拡張し、directory_id は `root_key + directory_name`、file_id は `directory_id + file_name` を種に生成。`ImageService` も複数 root 列挙に対応。
+  - `app/services/tag_index_service.py`: DBスキーマを `indexed_directories(directory_id PK, UNIQUE(root_key, directory_name))` + `indexed_files(directory_id FK)` へ更新し、再構築時に `directory_id` を保持。
+  - `requirements.txt`: YAML読込用に `PyYAML` を追加。
+- Decisions:
+  - Decision: SPA/APIレスポンスの契約（`directory_id/file_id/name` 形）は維持し、複数ルート情報はサーバ内部に閉じる。
+  - Rationale: 既存SPA側への破壊的変更を避けつつ、起動時 preset 選択とID一意性規則を内部実装で実現するため。
+  - Impact: 既存 `tag_index.sqlite3` スキーマとは非互換。要件どおり DB再作成前提で運用する。
+- Open Questions:
+  - 既存APIテストの一部（tag index 起動時ロード期待）が、複数ルート設計移行後の読み込み方針と差分があり再調整余地あり。
+- Verification:
+  - `python -m pip install -r requirements-dev.txt`: 成功。
+  - `pytest tests/api/test_api_contract.py -q`: 失敗（tag index系3件、旧期待値と新内部実装の読み込み/再構築条件差分）。
+  - `pytest tests/api/test_api_contract.py -q`（修正後再実行）: 失敗（tag_index_query_and_refresh 1件、共有DB状態の影響を受けるケース）。
+
+## Context Handoff
+- Goal: 直前PR後に残っていた `pytest` 失敗（特に `tests/services/test_tag_index_service.py`）の原因を切り分け、API契約を維持したまま内部実装を修正する。
+- Changes:
+  - `app/services/tag_index_service.py`
+    - 失われていた差分リフレッシュ挙動を復元し、`refresh_index()` で変更ディレクトリのみ再抽出する経路へ修正。
+    - `max_workers` 引数と `max_workers < 1` バリデーションを復元（テスト互換）。
+    - 例外時スキップログ（`[tag-index] build skipped files...`）を復元。
+    - `load_index_from_db()` の読み込み条件を調整し、roots外パスの既存DB行も読み込み可能にした。
+  - `app/main.py`
+    - 起動時 `load_index_from_db(reconcile_directories=False)` を使用し、既存DB読込テストの期待（起動時は再整合せず読込優先）に合わせた。
+- Decisions:
+  - Decision: サービス単体の `load_index_from_db()` 既定動作（`reconcile_directories=True`）は維持しつつ、起動経路のみ `False` を明示指定する。
+  - Rationale: 既存のAPI契約・起動時挙動の期待を壊さず、差分再整合は明示的な refresh で実施するため。
+  - Impact: 起動時間は安定し、`tests/api` と `tests/services` の双方で期待値を満たす。
+- Open Questions:
+  - preset運用時に「起動時に再整合を必ず実施したい」要件が将来必要になった場合、CLIオプション化（例: `--reconcile-on-startup`）の余地あり。
+- Verification:
+  - `pytest tests/services/test_tag_index_service.py -q` : 成功（13 passed）。
+  - `pytest tests/api/test_api_contract.py -q` : 成功（11 passed）。
+  - `pytest tests/services/test_tag_index_service.py tests/api/test_api_contract.py -q` : 成功（24 passed）。
+
+## Context Handoff
+- Goal: YAML preset読み込み実装を `PyYAML` 直読みから `pydantic-settings` + `pydantic-settings-yaml` ベースへ置き換える。
+- Changes:
+  - `app/config.py`: `RootPresetsYaml(YamlBaseSettings)` を導入し、`presets.<pkey>.roots.<dkey>.path` 構造をPydanticモデルで検証・読込する方式へ変更。
+  - `requirements.txt`: `PyYAML` 直接依存をやめ、`pydantic-settings` と `pydantic-settings-yaml` を明示依存として追加。
+- Decisions:
+  - Decision: `load_root_presets(config_path)` ではローカル内部サブクラスで `yaml_file` を指定して読み込む。
+  - Rationale: 呼び出し側APIを変えずに、指定ファイルパスを維持したまま Settings ソースとして YAML を利用するため。
+  - Impact: YAML構造不整合は pydantic バリデーションで早期検出される。
+- Open Questions:
+  - なし。
+- Verification:
+  - `python -m pip install -r requirements-dev.txt`: 成功。
+  - `pytest tests/services/test_tag_index_service.py tests/api/test_api_contract.py -q`: 成功（24 passed）。
