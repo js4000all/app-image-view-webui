@@ -324,6 +324,17 @@ body {
 }
 
 
+
+.filter-result-warning {
+  color: #f0c674;
+  font-weight: 600;
+}
+
+.filter-result-note {
+  margin-left: 4px;
+  color: #9aa5b1;
+}
+
 .threshold-slider {
   white-space: nowrap;
 }

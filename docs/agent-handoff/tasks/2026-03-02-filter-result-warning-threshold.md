@@ -1,0 +1,17 @@
+## Context Handoff
+- Goal: 絞り込み画面で1000件超の警告表示を追加し、閲覧遷移の抑止ロジックを廃止したうえで、0件遷移時の扱いを明示する。
+- Changes:
+  - `frontend/src/features/filter/constants.ts` に `FILTER_RESULT_WARNING_THRESHOLD = 1000` を追加。
+  - `frontend/src/features/filter/pages/FilterPage.tsx` で上記定数を参照し、`currentResultCount` が閾値超過時に「⚠️ 結果が多いため、十分に絞り込めていない可能性があります。」を結果表示の右隣へ追加。
+  - 同ファイルで閲覧ボタンの `disabled` 制御を撤廃し、0件時は「（0件のまま閲覧へ遷移できます）」を同一結果表示へ付与。
+  - `frontend/src/features/filter/pages/FilterPage.test.tsx` に閾値警告表示と0件遷移許可の仕様テストを追加。
+  - `static/styles.css` に警告文/補足文の表示スタイルを追加。
+- Decisions:
+  - Decision: 0件時遷移は「許可」を正式仕様とし、ボタン無効化ではなく非推奨ではない補足文で挙動を明示。
+  - Rationale: 遷移ブロック廃止要件と一貫し、UI上の操作可否と実挙動の不一致をなくすため。
+  - Impact: 絞り込み画面ヘッダ表示・遷移操作、関連ユニットテストに影響。
+- Open Questions:
+  - 1000件超の警告文言を将来 i18n 化する場合の文言管理場所は未決定。
+- Verification:
+  - `npm --prefix frontend test -- FilterPage.test.tsx --run`
+  - `npm --prefix frontend run build:bundle`

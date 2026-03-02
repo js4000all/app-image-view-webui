@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { DefaultService } from '../../../generated/api'
+import { FILTER_RESULT_WARNING_THRESHOLD } from '../constants'
 import { computeFilterStateSnapshot } from '../model/filterState'
 
 export type TagSummary = {
@@ -70,8 +71,6 @@ export function FilterPage(props: FilterPageProps) {
     [baseResultIds, selectedTagSet, tagToFileIds]
   )
 
-  const canOpenViewer = snapshot.currentResultIds.length > 0 && snapshot.currentResultIds.length <= 200
-
   const sortedSelectedTags = useMemo(() => [...selectedTags].sort((left, right) => left.localeCompare(right)), [selectedTags])
 
   const compareUnselectedTags = useCallback(
@@ -126,6 +125,9 @@ export function FilterPage(props: FilterPageProps) {
   }, [compareUnselectedTags, splitThreshold, unselectedTags])
 
   const currentResultCount = snapshot.currentResultIds.length
+  const shouldShowResultWarning = currentResultCount > FILTER_RESULT_WARNING_THRESHOLD
+  const resultMessage = `絞り込み結果: ${currentResultCount} / ${baseResultIds.length} 件`
+  const emptyResultRecommendation = currentResultCount === 0
 
   return (
     <main className="filter">
@@ -138,11 +140,14 @@ export function FilterPage(props: FilterPageProps) {
             type="button"
             className="reload-button"
             onClick={() => onOpenViewer(selectedTags)}
-            disabled={!canOpenViewer}
           >
             閲覧
           </button>
-          <p className="home-status">絞り込み結果: {currentResultCount} / {baseResultIds.length} 件</p>
+          <p className="home-status">
+            {resultMessage}
+            {shouldShowResultWarning ? <span className="filter-result-warning"> ⚠️ 結果が多いため、十分に絞り込めていない可能性があります。</span> : null}
+            {emptyResultRecommendation ? <span className="filter-result-note">（0件のまま閲覧へ遷移できます）</span> : null}
+          </p>
         </div>
         <div className="filter-header-row">
           <label htmlFor="tag-sort-order">未選択タグ並び順</label>

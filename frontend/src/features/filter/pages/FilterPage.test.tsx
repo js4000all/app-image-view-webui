@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { DefaultService } from '../../../generated/api'
+import { FILTER_RESULT_WARNING_THRESHOLD } from '../constants'
 import { FilterPage } from './FilterPage'
 import { filterHeaderScenarios } from './filterHeaderScenarios'
 
@@ -41,6 +42,21 @@ describe('FilterPage header', () => {
 
     expect(await screen.findByText('絞り込み結果: 2 / 2 件')).toBeTruthy()
   })
+  it('keeps viewer transition available even when result count is zero', async () => {
+    vi.spyOn(DefaultService, 'listTagIndexRegistry').mockResolvedValue({
+      tags: [
+        { tag: 'a', file_ids: ['f1'] },
+        { tag: 'b', file_ids: ['f2'] },
+      ],
+    })
+
+    render(<FilterPage selectedTags={['a', 'b']} onChangeTags={vi.fn()} onOpenViewer={vi.fn()} />)
+
+    const openViewerButton = await screen.findByRole('button', { name: '閲覧' })
+    expect(openViewerButton).toHaveProperty('disabled', false)
+    expect(await screen.findByText(/（0件のまま閲覧へ遷移できます）/)).toBeTruthy()
+  })
+
 
   it('supports display scenarios for wrapping/long-name/many-tags', async () => {
     render(<FilterPage selectedTags={filterHeaderScenarios[0].selectedTags} onChangeTags={vi.fn()} onOpenViewer={vi.fn()} />)
@@ -104,6 +120,22 @@ describe('FilterPage threshold split', () => {
 
     expect(await screen.findByText('絞り込み結果: 0 / 2 件')).toBeTruthy()
     expect(screen.queryByText(/件 \(.*%\)/)).toBeNull()
+  })
+
+  it('shows warning message when filtered result exceeds threshold', async () => {
+    vi.spyOn(DefaultService, 'listTagIndexRegistry').mockResolvedValue({
+      tags: [
+        {
+          tag: 'bulk',
+          file_ids: Array.from({ length: FILTER_RESULT_WARNING_THRESHOLD + 1 }, (_, i) => `f${i + 1}`),
+        },
+      ],
+    })
+
+    render(<FilterPage selectedTags={['bulk']} onChangeTags={vi.fn()} onOpenViewer={vi.fn()} />)
+
+    expect(await screen.findByText(new RegExp(`絞り込み結果: ${FILTER_RESULT_WARNING_THRESHOLD + 1} / ${FILTER_RESULT_WARNING_THRESHOLD + 1} 件`))).toBeTruthy()
+    expect(screen.getByText(/⚠️ 結果が多いため、十分に絞り込めていない可能性があります。/)).toBeTruthy()
   })
 
   it('supports text search for unselected tags', async () => {
