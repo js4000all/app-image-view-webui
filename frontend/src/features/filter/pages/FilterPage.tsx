@@ -113,8 +113,7 @@ export function FilterPage(props: FilterPageProps) {
     <main className="filter">
       <div className="filter-header">
         <h1>タグ絞り込み（暫定版）</h1>
-        <p className="home-description">タグを選択してAND条件で対象画像を絞り込みます。</p>
-        <div className="filter-toolbar">
+        <div className="filter-header-row filter-header-row-primary">
           <a href="/" className="home-link">ホームへ戻る</a>
           <button
             id="open-filter-viewer"
@@ -125,12 +124,12 @@ export function FilterPage(props: FilterPageProps) {
           >
             閲覧
           </button>
+          <p className="home-status">絞り込み結果: {currentResultCount} / {baseResultIds.length} 件</p>
         </div>
-        <p className="home-status" id="filter-status">{status}</p>
-        <p className="home-status">絞り込み結果: {currentResultCount} / {baseResultIds.length} 件</p>
-        <p className="home-status">ゼロ件時は未選択タグを非表示（0除算防止）</p>
-        <label className="threshold-slider" htmlFor="tag-threshold">
-          しきい値: {splitThreshold.toFixed(2)}
+        <div className="filter-header-row">
+          <label className="threshold-slider" htmlFor="tag-threshold">
+            <span>しきい値: {splitThreshold.toFixed(2)}</span>
+          </label>
           <input
             id="tag-threshold"
             type="range"
@@ -141,8 +140,9 @@ export function FilterPage(props: FilterPageProps) {
             onChange={(event) => {
               setSplitThreshold(Number(event.target.value))
             }}
+            className="threshold-slider-input"
           />
-        </label>
+        </div>
         <div className="selected-tag-chip-list" role="list" aria-label="選択中タグ一覧">
           {sortedSelectedTags.map((tag) => (
             <button
@@ -158,6 +158,7 @@ export function FilterPage(props: FilterPageProps) {
             </button>
           ))}
         </div>
+        <p className="sr-only" id="filter-status">{status}</p>
       </div>
       <div className="tag-flow-scroll" aria-live="polite">
         <section className="tag-section">

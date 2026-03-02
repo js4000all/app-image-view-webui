@@ -279,13 +279,26 @@ body {
 
 .filter-header {
   flex-shrink: 0;
+  margin-bottom: 12px;
+}
+
+.filter-header-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.filter-header-row-primary {
+  gap: 8px;
 }
 
 .selected-tag-chip-list {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .selected-tag-chip {
@@ -312,11 +325,11 @@ body {
 
 
 .threshold-slider {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 12px;
-  max-width: 320px;
+  white-space: nowrap;
+}
+
+.threshold-slider-input {
+  width: min(360px, 100%);
 }
 
 .tag-section {
