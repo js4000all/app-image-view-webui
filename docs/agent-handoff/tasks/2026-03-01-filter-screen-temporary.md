@@ -38,3 +38,17 @@
   - `pytest tests/e2e -q`（1 passed）
   - `pytest tests/api/test_api_contract.py -q`（11 passed）
   - `npm --prefix frontend run build:bundle`（成功）
+
+## Context Handoff (filter image 404 fix)
+- Goal: 絞り込みモードで未閲覧画像の `/api/image/{file_id}` が 404 になる不具合を解消する。
+- Changes:
+  - `app/services/tag_index_service.py`: `load_index_from_db()` で DB から読み込んだ各画像パスを `ResourceRegistry` に再登録し、`file_id` 不整合や不正パスをスキップする検証を追加。
+  - `tests/services/test_tag_index_service.py`: DB ロード後でも `ResourceRegistry.resolve()` で画像 `file_id` を解決できることを確認する回帰テストを追加。
+- Decisions:
+  - Decision: DB ロード時にパスの存在確認・base_dir 配下確認・登録ID一致確認を行ってからメモリ状態に復元する。
+  - Rationale: タグ検索で返す `file_id` は DB 復元直後も画像APIで解決可能である必要があり、`_id_to_path` 未復元を防ぐため。
+  - Impact: サーバー再起動後でも絞り込みモードの画像表示がディレクトリモード未経由で成立する。
+- Open Questions:
+  - DB 内に古い `file_id` 形式が残っている場合は現状スキップ扱い。必要に応じて将来は再インデックス誘導を検討する。
+- Verification:
+  - `pytest tests/services/test_tag_index_service.py -q`（12 passed）

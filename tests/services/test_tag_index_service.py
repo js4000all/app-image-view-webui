@@ -96,6 +96,37 @@ def test_load_index_from_db_restores_in_memory_state(tmp_path: Path):
     assert len(loader.query(["old male", "best quality"], "and")) == 2
 
 
+def test_load_index_from_db_registers_file_ids_for_image_resolution(tmp_path: Path):
+    source = Path("tests/resources/images_with_prompt/dir1")
+    base_dir = tmp_path / "images"
+    base_dir.mkdir()
+    target_image = base_dir / "00009.png"
+    shutil.copy2(source / "00009.png", target_image)
+    db_path = tmp_path / "tag_index.sqlite3"
+
+    builder_registry = ResourceRegistry(base_dir=base_dir)
+    builder = TagIndexService(
+        base_dir=base_dir,
+        repository=FileSystemRepository(),
+        registry=builder_registry,
+        db_path=db_path,
+    )
+    builder.build_index(base_dir)
+    indexed_file_id = builder_registry.register(target_image)
+
+    loader_registry = ResourceRegistry(base_dir=base_dir)
+    loader = TagIndexService(
+        base_dir=base_dir,
+        repository=FileSystemRepository(),
+        registry=loader_registry,
+        db_path=db_path,
+    )
+
+    loader.load_index_from_db()
+
+    assert loader_registry.resolve(indexed_file_id, base_dir=base_dir, expect_directory=False) == target_image.resolve()
+
+
 
 
 def test_refresh_index_outputs_scan_and_apply_progress(tmp_path: Path, capsys, monkeypatch):

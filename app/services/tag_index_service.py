@@ -295,8 +295,16 @@ class TagIndexService:
             indexed_files = conn.execute("SELECT file_id, path, mtime_ns, size FROM indexed_files")
             for file_id_raw, path, mtime_ns, size in indexed_files:
                 file_id = FileId(file_id_raw)
+                resolved_path = Path(path).resolve()
+                if not resolved_path.exists() or not resolved_path.is_file() or not resolved_path.is_relative_to(self.base_dir):
+                    continue
+
+                registered_file_id = FileId(self.registry.register(resolved_path))
+                if registered_file_id != file_id:
+                    continue
+
                 fingerprint = FileFingerprint(mtime_ns=mtime_ns, size=size)
-                file_metadata[file_id] = IndexedFileMeta(path=path, fingerprint=fingerprint)
+                file_metadata[file_id] = IndexedFileMeta(path=str(resolved_path), fingerprint=fingerprint)
                 file_id_to_tags[file_id] = []
 
             file_tags = conn.execute("SELECT tag, file_id FROM file_tags")
