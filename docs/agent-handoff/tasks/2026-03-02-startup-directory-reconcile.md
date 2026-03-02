@@ -1,0 +1,25 @@
+## Context Handoff
+- Goal:
+  - タグインデックスDBが既に存在する起動時に、全ファイルを逐次検証するコストを削減するため、ディレクトリ差分起点で整合処理する。
+- Changes:
+  - `app/services/tag_index_service.py`
+    - `load_index_from_db(reconcile_directories: bool = True)` を追加し、起動時に `indexed_directories` と実ディレクトリの差分を先に判定。
+    - 差分があるディレクトリだけ `_reconcile_files_for_directories()` で実ファイルとDBを整合。
+    - 差分がない場合はファイル単位の存在チェックをスキップしてメモリ復元のみ実施。
+    - `refresh_index()` の最後は `load_index_from_db(reconcile_directories=False)` を呼び、二重スキャンを回避。
+    - ファイルID登録は `registry.register_file()` を利用して無駄な `is_dir()` 判定を削減。
+  - `app/services/image_service.py`
+    - `ResourceRegistry.register(path, is_directory=None)` に拡張。
+    - `register_file()` / `register_directory()` を追加し、呼び出し側を用途別APIに置換。
+  - `tests/services/test_tag_index_service.py`
+    - `test_load_index_from_db_reconciles_only_changed_directories` を追加し、変更ディレクトリの新規ファイルのみ再抽出されることを検証。
+- Decisions:
+  - Decision: 起動時整合の主キーを「ファイル全件走査」から「ディレクトリmtime差分」に変更。
+  - Rationale: 起動待ちの主因である全件存在チェックを避け、変更がないケースを最短経路で通すため。
+  - Impact: ディレクトリmtimeが変わらない特殊ケースでは差分検出できないが、既存 `refresh_index()` と同等の前提で運用する。
+- Open Questions:
+  - ファイルシステムや同期ツールによっては、ファイル更新時に親ディレクトリmtimeが変化しない環境がありうるため、オプションで強制フル検証モードを残すかは要検討。
+- Verification:
+  - `pytest tests/services/test_tag_index_service.py -q` -> 成功（13 passed）
+  - `python -m pip install -r requirements-dev.txt` -> 成功（不足依存の `httpx` / `playwright` を導入）
+  - `pytest tests/api/test_api_contract.py::test_tag_index_query_and_refresh -q` -> 成功（1 passed）

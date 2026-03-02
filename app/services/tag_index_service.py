@@ -239,7 +239,7 @@ class TagIndexService:
                     if not positive_tags:
                         continue
 
-                    file_id = FileId(self.registry.register(image_path))
+                    file_id = FileId(self.registry.register_file(image_path))
                     stat_result = image_path.stat()
                     fingerprint = FileFingerprint(mtime_ns=stat_result.st_mtime_ns, size=stat_result.st_size)
 
@@ -286,21 +286,21 @@ class TagIndexService:
         self.file_id_to_tags = file_id_to_tags
         self.file_metadata = file_metadata
 
-    def load_index_from_db(self) -> int:
+    def load_index_from_db(self, *, reconcile_directories: bool = True) -> int:
         tag_to_file_ids: dict[str, set[FileId]] = {}
         file_id_to_tags: dict[FileId, list[str]] = {}
         file_metadata: dict[FileId, IndexedFileMeta] = {}
 
         with self._connect() as conn:
+            if reconcile_directories:
+                self._reconcile_directory_index(conn)
+
             indexed_files = conn.execute("SELECT file_id, path, mtime_ns, size FROM indexed_files")
             for file_id_raw, path, mtime_ns, size in indexed_files:
                 file_id = FileId(file_id_raw)
                 resolved_path = Path(path).resolve()
-                if not resolved_path.exists() or not resolved_path.is_file():
-                    continue
-
                 if resolved_path.is_relative_to(self.base_dir):
-                    registered_file_id = FileId(self.registry.register(resolved_path))
+                    registered_file_id = FileId(self.registry.register_file(resolved_path))
                     if registered_file_id != file_id:
                         continue
 
@@ -320,6 +320,106 @@ class TagIndexService:
         self.file_id_to_tags = file_id_to_tags
         self.file_metadata = file_metadata
         return len(file_metadata)
+
+    def _reconcile_directory_index(self, conn: sqlite3.Connection) -> None:
+        target_base = self.base_dir.resolve()
+        directory_rows = self._collect_directory_rows_with_progress(target_base)
+        current_directories = {path: mtime_ns for path, mtime_ns in directory_rows}
+
+        db_directories: dict[str, IndexedDirectory] = {}
+        rows = conn.execute("SELECT path, mtime_ns FROM indexed_directories")
+        for path, mtime_ns in rows:
+            db_directories[path] = IndexedDirectory(path=path, mtime_ns=mtime_ns)
+
+        changed_directories = sorted(
+            path
+            for path, mtime_ns in current_directories.items()
+            if path not in db_directories or db_directories[path].mtime_ns != mtime_ns
+        )
+        deleted_directories = sorted(path for path in db_directories if path not in current_directories)
+
+        if not changed_directories and not deleted_directories:
+            return
+
+        self._reconcile_files_for_directories(conn, changed_directories, deleted_directories)
+
+        conn.execute("DELETE FROM indexed_directories")
+        conn.executemany(
+            "INSERT INTO indexed_directories(path, mtime_ns) VALUES (?, ?)",
+            directory_rows,
+        )
+
+    def _reconcile_files_for_directories(
+        self,
+        conn: sqlite3.Connection,
+        changed_directories: list[str],
+        deleted_directories: list[str],
+    ) -> None:
+        db_files_in_changed_dirs: dict[str, IndexedRecord] = {}
+
+        for directory_path in changed_directories:
+            for file_id_raw, path, mtime_ns, size in conn.execute(
+                "SELECT file_id, path, mtime_ns, size FROM indexed_files WHERE path LIKE ?",
+                (f"{directory_path}{os.sep}%",),
+            ):
+                db_files_in_changed_dirs[path] = IndexedRecord(
+                    file_id=FileId(file_id_raw),
+                    fingerprint=FileFingerprint(mtime_ns=mtime_ns, size=size),
+                )
+
+        current_files: dict[str, tuple[Path, FileFingerprint]] = {}
+        for directory_path in changed_directories:
+            directory = Path(directory_path)
+            if not directory.exists() or not directory.is_dir():
+                continue
+            for image_path in self.repository.list_images(directory):
+                stat_result = image_path.stat()
+                current_files[str(image_path.resolve())] = (
+                    image_path,
+                    FileFingerprint(mtime_ns=stat_result.st_mtime_ns, size=stat_result.st_size),
+                )
+
+        added_paths = sorted(path for path in current_files if path not in db_files_in_changed_dirs)
+        modified_paths = sorted(
+            path
+            for path in current_files
+            if path in db_files_in_changed_dirs and current_files[path][1] != db_files_in_changed_dirs[path].fingerprint
+        )
+        deleted_paths = sorted(path for path in db_files_in_changed_dirs if path not in current_files)
+
+        for directory_path in deleted_directories:
+            for file_id_raw, path in conn.execute(
+                "SELECT file_id, path FROM indexed_files WHERE path LIKE ?",
+                (f"{directory_path}{os.sep}%",),
+            ):
+                conn.execute("DELETE FROM file_tags WHERE file_id = ?", (file_id_raw,))
+                conn.execute("DELETE FROM indexed_files WHERE file_id = ?", (file_id_raw,))
+
+        for path in deleted_paths:
+            file_id = db_files_in_changed_dirs[path].file_id
+            conn.execute("DELETE FROM file_tags WHERE file_id = ?", (file_id,))
+            conn.execute("DELETE FROM indexed_files WHERE file_id = ?", (file_id,))
+
+        for path in added_paths + modified_paths:
+            image_path, fingerprint = current_files[path]
+
+            if path in db_files_in_changed_dirs:
+                old_file_id = db_files_in_changed_dirs[path].file_id
+                conn.execute("DELETE FROM file_tags WHERE file_id = ?", (old_file_id,))
+                conn.execute("DELETE FROM indexed_files WHERE file_id = ?", (old_file_id,))
+
+            prompt_result = extract_generation_prompts(image_path)
+            positive_tags = _normalize_tags(prompt_result.positive if prompt_result else [])
+            if not positive_tags:
+                continue
+
+            file_id = FileId(self.registry.register_file(image_path))
+            conn.execute(
+                "INSERT INTO indexed_files(file_id, path, mtime_ns, size) VALUES (?, ?, ?, ?)",
+                (file_id, path, fingerprint.mtime_ns, fingerprint.size),
+            )
+            for tag in positive_tags:
+                conn.execute("INSERT INTO file_tags(tag, file_id) VALUES (?, ?)", (tag, file_id))
 
 
     def _collect_directory_rows_with_progress(self, target_base: Path) -> list[tuple[str, int]]:
@@ -477,7 +577,7 @@ class TagIndexService:
                 if not positive_tags:
                     continue
 
-                file_id = FileId(self.registry.register(image_path))
+                file_id = FileId(self.registry.register_file(image_path))
                 conn.execute(
                     "INSERT INTO indexed_files(file_id, path, mtime_ns, size) VALUES (?, ?, ?, ?)",
                     (file_id, path, fingerprint.mtime_ns, fingerprint.size),
@@ -492,7 +592,7 @@ class TagIndexService:
             )
             apply_progress.close()
 
-        self.load_index_from_db()
+        self.load_index_from_db(reconcile_directories=False)
         if progress_callback is not None:
             progress_callback(
                 status="running",
