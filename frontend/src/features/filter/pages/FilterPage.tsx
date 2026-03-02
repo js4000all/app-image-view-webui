@@ -67,6 +67,8 @@ export function FilterPage(props: FilterPageProps) {
 
   const canOpenViewer = snapshot.currentResultIds.length > 0 && snapshot.currentResultIds.length <= 200
 
+  const sortedSelectedTags = useMemo(() => [...selectedTags].sort((left, right) => left.localeCompare(right)), [selectedTags])
+
   const sortedTags = useMemo(() => {
     const selectedSummaries = tags.filter(({ tag }) => selectedTagSet.has(tag))
     const unselectedSummaries = tags
@@ -95,7 +97,22 @@ export function FilterPage(props: FilterPageProps) {
           </button>
         </div>
         <p className="home-status" id="filter-status">{status}</p>
-        <p className="home-status">選択中: {selectedTags.length}タグ / 対象: {snapshot.currentResultIds.length}件</p>
+        <p className="home-status">絞り込み結果: {snapshot.currentResultIds.length} / {baseResultIds.length} 件</p>
+        <div className="selected-tag-chip-list" role="list" aria-label="選択中タグ一覧">
+          {sortedSelectedTags.map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              className="selected-tag-chip"
+              onClick={() => onChangeTags(selectedTags.filter((selectedTag) => selectedTag !== tag))}
+              title={`タグ「${tag}」を解除`}
+              aria-label={`タグ「${tag}」を解除`}
+            >
+              <span className="selected-tag-chip-label">{tag}</span>
+              <span aria-hidden="true" className="selected-tag-chip-remove">×</span>
+            </button>
+          ))}
+        </div>
       </div>
       <div className="tag-flow-scroll" aria-live="polite">
         <div className="tag-button-list">
