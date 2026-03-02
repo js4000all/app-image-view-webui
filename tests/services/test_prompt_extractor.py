@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from app.services.prompt_extractor import extract_generation_prompts
+from app.services.prompt_extractor import _tokenize_prompt_terms, extract_generation_prompts
 
 
 @pytest.mark.parametrize(
@@ -47,3 +47,19 @@ def test_extract_generation_prompts_from_test_assets(
     assert result is not None
     assert result.positive == expected_positive
     assert result.negative == expected_negative
+
+
+@pytest.mark.parametrize(
+    ("part", "expected"),
+    [
+        ("(car", ["car"]),
+        ("boy)", ["boy"]),
+        ("boy:1:2)", ["boy"]),
+        ("(boy)", ["boy"]),
+        ("big (cat)", ["big cat"]),
+        (r"aqua \(konosuba\)", [r"aqua \(konosuba\)"]),
+        ("(masterpiece:1.2), best quality", ["masterpiece", "best quality"]),
+    ],
+)
+def test_tokenize_prompt_terms_strips_weight_notation_variants(part: str, expected: list[str]) -> None:
+    assert _tokenize_prompt_terms(part) == expected
