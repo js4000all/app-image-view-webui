@@ -1,0 +1,23 @@
+## Context Handoff
+- Goal:
+  - 絞り込み画面の未選択タグ一覧に「並び順切替（辞書順/件数降順）」と「部分一致検索」を追加し、既存の上段/下段分離との評価順序を統一する。
+- Changes:
+  - `frontend/src/features/filter/pages/FilterPage.tsx`
+    - 未選択タグ向けの状態 `sortOrder` / `searchQuery` を追加。
+    - 処理順を `0件除外 -> 検索 -> しきい値分離 -> 並び替え` に統一。
+    - 件数降順ソート時の同値第二キーを辞書順で固定。
+    - 並び順セレクトと検索入力をヘッダへ追加。
+  - `frontend/src/features/filter/pages/FilterPage.test.tsx`
+    - 検索動作テストを追加。
+    - 並び順切替と同値時辞書順タイブレークのテストを追加。
+- Decisions:
+  - Decision: 分離前に未選択タグ集合へ検索を適用する。
+  - Rationale: 上段/下段のどちらにも同じ検索結果集合を供給し、UI説明と実装の順序差異をなくすため。
+  - Impact: しきい値調整時も検索条件を維持したまま表示更新される。
+- Open Questions:
+  - 1000件超警告や二段階絞り込み最適化は未対応（ロードマップの別タスク）。
+- Verification:
+  - `npm --prefix frontend ci` : 成功
+  - `npm --prefix frontend test` : 成功（FilterPage関連10件）
+  - `npm --prefix frontend run build:bundle` : 成功
+  - `python app.py tests/resources/image_root --host 0.0.0.0 --port 8000` + Playwright screenshot : 成功

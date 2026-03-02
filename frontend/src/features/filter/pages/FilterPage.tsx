@@ -14,9 +14,13 @@ type FilterPageProps = {
   onOpenViewer: (tags: string[]) => void
 }
 
+type UnselectedTagSortOrder = 'alphabetical' | 'count-desc'
+
 export function FilterPage(props: FilterPageProps) {
   const { selectedTags, onChangeTags, onOpenViewer } = props
   const [splitThreshold, setSplitThreshold] = useState(0.8)
+  const [sortOrder, setSortOrder] = useState<UnselectedTagSortOrder>('alphabetical')
+  const [searchQuery, setSearchQuery] = useState('')
   const [tags, setTags] = useState<TagSummary[]>([])
   const [tagToFileIds, setTagToFileIds] = useState<Record<string, string[]>>({})
   const [baseResultIds, setBaseResultIds] = useState<string[]>([])
@@ -70,30 +74,41 @@ export function FilterPage(props: FilterPageProps) {
 
   const sortedSelectedTags = useMemo(() => [...selectedTags].sort((left, right) => left.localeCompare(right)), [selectedTags])
 
-  const sortedTags = useMemo(() => {
-    const selectedSummaries = tags.filter(({ tag }) => selectedTagSet.has(tag))
-    const unselectedSummaries = tags
+  const compareUnselectedTags = useCallback(
+    (left: { tag: string; count: number }, right: { tag: string; count: number }): number => {
+      if (sortOrder === 'count-desc') {
+        return right.count - left.count || left.tag.localeCompare(right.tag)
+      }
+      return left.tag.localeCompare(right.tag)
+    },
+    [sortOrder]
+  )
+
+  const unselectedTags = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase()
+    const currentResultCount = snapshot.currentResultIds.length
+
+    return tags
       .filter(({ tag }) => !selectedTagSet.has(tag))
       .map(({ tag }) => {
         const count = snapshot.unselectedTagStats[tag] ?? 0
-        const currentResultCount = snapshot.currentResultIds.length
         const ratio = currentResultCount > 0 ? count / currentResultCount : 0
         return { tag, count, ratio }
       })
       .filter(({ count }) => count > 0)
-
-    return [...selectedSummaries, ...unselectedSummaries]
-  }, [selectedTagSet, snapshot.currentResultIds.length, snapshot.unselectedTagStats, tags])
+      .filter(({ tag }) => {
+        if (!normalizedQuery) {
+          return true
+        }
+        return tag.toLowerCase().includes(normalizedQuery)
+      })
+  }, [searchQuery, selectedTagSet, snapshot.currentResultIds.length, snapshot.unselectedTagStats, tags])
 
   const splitTagSections = useMemo(() => {
     const highContributionTags: Array<{ tag: string; count: number; ratio: number }> = []
     const lowContributionTags: Array<{ tag: string; count: number; ratio: number }> = []
 
-    for (const tag of sortedTags) {
-      if (!('ratio' in tag) || selectedTagSet.has(tag.tag)) {
-        continue
-      }
-
+    for (const tag of unselectedTags) {
       if (tag.ratio <= splitThreshold) {
         highContributionTags.push(tag)
       } else {
@@ -101,11 +116,14 @@ export function FilterPage(props: FilterPageProps) {
       }
     }
 
+    highContributionTags.sort(compareUnselectedTags)
+    lowContributionTags.sort(compareUnselectedTags)
+
     return {
       highContributionTags,
       lowContributionTags,
     }
-  }, [selectedTagSet, sortedTags, splitThreshold])
+  }, [compareUnselectedTags, splitThreshold, unselectedTags])
 
   const currentResultCount = snapshot.currentResultIds.length
 
@@ -125,6 +143,29 @@ export function FilterPage(props: FilterPageProps) {
             閲覧
           </button>
           <p className="home-status">絞り込み結果: {currentResultCount} / {baseResultIds.length} 件</p>
+        </div>
+        <div className="filter-header-row">
+          <label htmlFor="tag-sort-order">未選択タグ並び順</label>
+          <select
+            id="tag-sort-order"
+            value={sortOrder}
+            onChange={(event) => {
+              setSortOrder(event.target.value as UnselectedTagSortOrder)
+            }}
+          >
+            <option value="alphabetical">辞書順</option>
+            <option value="count-desc">件数降順</option>
+          </select>
+          <label htmlFor="tag-search-input">タグ検索</label>
+          <input
+            id="tag-search-input"
+            type="text"
+            value={searchQuery}
+            onChange={(event) => {
+              setSearchQuery(event.target.value)
+            }}
+            placeholder="タグ名で絞り込み"
+          />
         </div>
         <div className="filter-header-row">
           <label className="threshold-slider" htmlFor="tag-threshold">
@@ -208,7 +249,7 @@ export function FilterPage(props: FilterPageProps) {
           </div>
         </section>
         <div className="tag-button-list">
-          {sortedTags.filter((tag) => selectedTagSet.has(tag.tag)).map((tag) => {
+          {tags.filter((tag) => selectedTagSet.has(tag.tag)).map((tag) => {
             const isSelected = selectedTagSet.has(tag.tag)
             const displayCount = currentResultCount
             return (

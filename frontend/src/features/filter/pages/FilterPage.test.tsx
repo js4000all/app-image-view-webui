@@ -105,4 +105,53 @@ describe('FilterPage threshold split', () => {
     expect(await screen.findByText('絞り込み結果: 0 / 2 件')).toBeTruthy()
     expect(screen.queryByText(/件 \(.*%\)/)).toBeNull()
   })
+
+  it('supports text search for unselected tags', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(DefaultService, 'listTagIndexRegistry').mockResolvedValue({
+      tags: [
+        { tag: 'base', file_ids: ['f1', 'f2', 'f3'] },
+        { tag: 'apple', file_ids: ['f1'] },
+        { tag: 'banana', file_ids: ['f2'] },
+      ],
+    })
+
+    render(<FilterPage selectedTags={['base']} onChangeTags={vi.fn()} onOpenViewer={vi.fn()} />)
+
+    const searchInput = await screen.findByLabelText('タグ検索')
+    await user.type(searchInput, 'app')
+
+    expect(screen.getByText('apple')).toBeTruthy()
+    expect(screen.queryByText('banana')).toBeNull()
+  })
+
+  it('switches unselected tag order and keeps alphabetical tie-breaker for count sort', async () => {
+    const user = userEvent.setup()
+    vi.spyOn(DefaultService, 'listTagIndexRegistry').mockResolvedValue({
+      tags: [
+        { tag: 'base', file_ids: ['f1', 'f2', 'f3'] },
+        { tag: 'zeta', file_ids: ['f1'] },
+        { tag: 'alpha', file_ids: ['f1'] },
+        { tag: 'middle', file_ids: ['f1', 'f2'] },
+      ],
+    })
+
+    render(<FilterPage selectedTags={['base']} onChangeTags={vi.fn()} onOpenViewer={vi.fn()} />)
+
+    expect(await screen.findByText('middle')).toBeTruthy()
+    const highSection = await screen.findByRole('heading', { name: '絞り込み寄与が高いタグ（比率 ≤ しきい値）' })
+    const highButtons = within(highSection.parentElement as HTMLElement).getAllByRole('button')
+
+    expect(highButtons[0].textContent).toContain('alpha')
+    expect(highButtons[1].textContent).toContain('middle')
+    expect(highButtons[2].textContent).toContain('zeta')
+
+    const sortSelect = screen.getByLabelText('未選択タグ並び順')
+    await user.selectOptions(sortSelect, 'count-desc')
+
+    const countSortedButtons = within(highSection.parentElement as HTMLElement).getAllByRole('button')
+    expect(countSortedButtons[0].textContent).toContain('middle')
+    expect(countSortedButtons[1].textContent).toContain('alpha')
+    expect(countSortedButtons[2].textContent).toContain('zeta')
+  })
 })
