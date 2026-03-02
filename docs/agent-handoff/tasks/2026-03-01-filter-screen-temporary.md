@@ -38,3 +38,22 @@
   - `pytest tests/e2e -q`（1 passed）
   - `pytest tests/api/test_api_contract.py -q`（11 passed）
   - `npm --prefix frontend run build:bundle`（成功）
+
+## Context Handoff (header fixed / tag list scroll)
+- Goal: 絞り込み画面でヘッダ部（説明・ボタン・ステータス）を固定し、タグ一覧のみスクロールするレイアウトへ変更する。
+- Changes:
+  - `frontend/src/features/filter/pages/FilterPage.tsx`: ヘッダ領域を `filter-header` に分離し、タグ一覧を `filter-tag-scroll-area` 配下へ移動。
+  - `static/styles.css`: `.filter` を縦flexレイアウト化し、`.filter-tag-scroll-area` に `overflow-y: auto` を設定してタグ一覧のみスクロールするよう調整。
+  - `static/home-app/assets/index-CSC8OxEY.js`: SPAビルドを再生成して配信バンドルへ反映。
+- Decisions:
+  - Decision: DOM構造をヘッダとスクロール領域に明示分離し、CSSだけでスクロール責務を制御。
+  - Rationale: ボタン類の固定を安定して実現しつつ、既存のタグ選択ロジックを変更しない最小差分にするため。
+  - Impact: 絞り込み画面のUXのみ変更され、APIやビューア遷移ロジックへの影響はない。
+- Open Questions:
+  - タグ数が極端に多いケースでスクロール位置保持（再描画時復元）を要件化するかは未決。
+- Verification:
+  - `npm --prefix frontend ci`（成功）
+  - `npm --prefix frontend run build:bundle`（成功）
+  - `python3 -m pip install -r requirements-dev.txt`（成功）
+  - `pytest tests/api -q`（11 passed）
+  - `mcp__browser_tools__run_playwright_script`（失敗: `#open-filter-page` selector timeout でスクリーンショット取得不可）

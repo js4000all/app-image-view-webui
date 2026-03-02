@@ -270,7 +270,27 @@ body {
 .filter {
   max-width: 960px;
   margin: 0 auto;
-  padding: 40px 16px;
+  padding: 24px 16px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.filter-header {
+  flex: 0 0 auto;
+  padding-bottom: 12px;
+}
+
+.filter-header h1 {
+  margin-top: 0;
+}
+
+.filter-tag-scroll-area {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .tag-button-list {
