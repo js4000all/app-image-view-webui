@@ -1,0 +1,16 @@
+## Context Handoff
+- Goal: 絞り込み画面でヘッダ（説明文・ボタン類）を固定し、タグフロー部分のみスクロールするようにする。
+- Changes:
+  - `frontend/src/features/filter/pages/FilterPage.tsx` でヘッダ領域を `filter-header` に分離し、タグ一覧を `tag-flow-scroll` ラッパー内へ移動。
+  - `static/styles.css` で `.filter` を縦方向レイアウト（`height: 100vh` + `overflow: hidden`）へ変更し、`.tag-flow-scroll` のみ `overflow-y: auto` に設定。
+  - `npm --prefix frontend run build:bundle` 実行により `static/home-app/index.html` とバンドルJSを更新。
+- Decisions:
+  - Decision: `position: sticky` ではなく、画面全体を `flex` 分割してヘッダ固定/本文スクロールを実装。
+  - Rationale: タグ件数が多い場合でもスクロール領域を明示でき、ヘッダが確実に固定されるため。
+  - Impact: `/filter` 画面のレイアウトとスクロール挙動、生成済みSPAバンドル。
+- Open Questions:
+  - フィルタ画面の縦余白（`padding: 40px 16px`）を維持したため、超小画面でヘッダ高さが増えるとタグ表示領域が狭くなる可能性あり。
+- Verification:
+  - `npm --prefix frontend run build:bundle`（成功）
+  - `pytest tests/api/test_api_contract.py -q`（既存失敗1件: `test_tag_index_query_works_on_startup_by_loading_db_without_rebuild`）
+  - browser tool で `/filter` のスクリーンショット取得（成功）
