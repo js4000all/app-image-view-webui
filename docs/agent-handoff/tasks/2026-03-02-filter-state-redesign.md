@@ -1,0 +1,18 @@
+## Context Handoff
+- Goal:
+  - 絞り込み画面の状態モデルを `selectedTags` / `baseResultIds` / `currentResultIds` / `unselectedTagStats` に統一し、AND条件と未選択タグ件数再計算を純関数へ集約する。
+- Changes:
+  - `frontend/src/features/filter/model/filterState.ts` を追加し、状態再計算を副作用なし関数 `computeFilterStateSnapshot` へ分離。
+  - `frontend/src/features/filter/pages/FilterPage.tsx` を更新し、複数タグ選択・再計算結果表示・0件タグ非表示をモデル層の計算結果に委譲。
+  - `frontend/src/App.tsx` を更新し、`tag` クエリをカンマ区切り複数指定として扱い、viewer 側も AND クエリを複数タグで実行。
+  - `frontend/src/features/filter/model/filterState.test.ts` を追加し、AND条件と未選択タグ件数の再計算を固定。
+  - `frontend/package.json` に `test` スクリプトと `vitest` 依存を追加。
+- Decisions:
+  - Decision: 再計算ロジックは React コンポーネント外へ切り出し、引数だけで結果を返す純関数に統一。
+  - Rationale: 今後の状態モデル拡張（検索・並び替え・二段階絞り込み）時の回帰面積を縮小するため。
+  - Impact: フィルタUI・URL状態・viewerタグ指定の連携。
+- Open Questions:
+  - タグ一覧ロード時に各タグ単体クエリを並列実行しているため、タグ数増加時の初期ロード時間は要監視。
+- Verification:
+  - `npm --prefix frontend run test` : 成功（2 tests passed）。
+  - `npm --prefix frontend run build:bundle` : 成功。
